@@ -17,3 +17,16 @@ Ovozli mashqlar uchun Android'da **Chrome**, iPhone'da **Safari**, kompyuterda *
 `index.html` ni brauzerda oching yoki GitHub Pages orqali joylang (Settings → Pages → Branch: `main`, papka: `/ (root)`).
 
 Dars matnlari va mashqlar original: kitoblardan ko'chirilmagan, faqat mavzular ketma-ketligi olingan.
+
+## A1 dan C2 gacha
+
+- **Grammatika:** 58 dars — A1–A2 (20, *Essential Grammar in Use*), B1 (12) va B2 (12, *English Grammar in Use*), C1 (9) va C2 (5, *Advanced Grammar in Use*).
+- **Speaking:** 36 mavzu, IELTS Part 1/2/3 bo'yicha, darajaga mos namuna javoblar; 30 ta suhbat iborasi.
+- **Lug'at:** 234 so'z, A2 dan C2 gacha (akademik so'zlar, idiomalar, kollokatsiyalar).
+- **🎯 Daraja testi:** har darajadan 4 savol, natijaga qarab bugungi reja shu darajadan boshlanadi.
+
+## Android ilova (APK)
+
+`android/` papkasida WebView asosidagi ilova bor: sayt fayllari APK ichida (internetsiz ochiladi),
+ovozli o'qish va mikrofon telefonning o'z xizmatlari (TextToSpeech, SpeechRecognizer) orqali ishlaydi.
+Yig'ish tartibi `android/build-apk.sh` faylida yozilgan.
