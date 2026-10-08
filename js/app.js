@@ -35,6 +35,15 @@
   const words = (s) => norm(s).split(" ").filter(Boolean);
   // Yozma javobni chiroyli ko'rsatish: "i am tired" → "I am tired."
   const pretty = (s) => (s.includes(" ") ? s.replace(/\bi\b/g, "I").replace(/^./, (c) => c.toUpperCase()) + "." : s);
+  let toastTimer = null;
+  function toast(msg) {
+    let t = document.getElementById("toast");
+    if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (t.hidden = true), 5000);
+  }
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
   // ---------- Ovoz: gapirish (TTS) ----------
@@ -52,7 +61,7 @@
       voices.find((v) => /en[-_]US/i.test(v.lang)) || voices[0];
   }
   function speak(text, rate) {
-    if (!synth) { alert("Bu brauzerda ovozli o'qish ishlamaydi. Chrome brauzerini sinab ko'ring."); return; }
+    if (!synth) { toast("Bu brauzerda ovozli o'qish ishlamaydi. Chrome brauzerini sinab ko'ring."); return; }
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     const v = pickVoice();
@@ -80,11 +89,11 @@
     };
     r.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        alert("Mikrofonga ruxsat berilmadi. Brauzer sozlamalarida bu sayt uchun mikrofonni yoqing.");
+        toast("Mikrofonga ruxsat berilmadi. Brauzer sozlamalarida (manzil satridagi 🔒 belgisi) bu sayt uchun mikrofonni yoqing.");
       }
     };
     r.onend = () => onEnd(finalText.trim());
-    r.start();
+    try { r.start(); } catch (e) { toast("Mikrofonni ishga tushirib bo'lmadi. Sahifani yangilab, qayta urinib ko'ring."); setTimeout(() => onEnd(""), 0); }
     return r;
   }
   const noMic = '<div class="notice">Bu brauzer ovozni tanimaydi. Telefonda <b>Chrome</b> (Android) yoki <b>Safari</b> (iPhone), kompyuterda <b>Chrome</b> yoki <b>Edge</b> ishlating. Hozircha gapni ovoz chiqarib ayting va namunani tinglab o\'zingizni solishtiring.</div>';
@@ -202,8 +211,12 @@
     const v = document.getElementById("voice");
     if (v) v.onchange = () => { S.voice = v.value; save(); };
     document.getElementById("rate").onchange = (e) => { S.rate = Number(e.target.value); save(); };
-    document.getElementById("reset").onclick = () => {
-      if (confirm("Barcha natijalar o'chirilsinmi?")) { S = blank(); save(); renderStreak(); viewHome(); }
+    const rs = document.getElementById("reset");
+    rs.onclick = () => {
+      if (rs.dataset.sure) { S = blank(); save(); renderStreak(); viewHome(); toast("Natijalar tozalandi."); return; }
+      rs.dataset.sure = "1";
+      rs.textContent = "Ishonchingiz komilmi? Yana bosing";
+      setTimeout(() => { if (rs.isConnected) { delete rs.dataset.sure; rs.textContent = "Jarayonni tozalash"; } }, 4000);
     };
   }
 
@@ -491,6 +504,20 @@
     else viewHome();
   }
   window.addEventListener("hashchange", route);
+  // Telefon/kompyuterga ilova sifatida o'rnatish tugmasi (Chrome, Edge)
+  let installEvt = null;
+  const installBtn = document.getElementById("install");
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; installBtn.classList.add("show"); });
+  installBtn.onclick = async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    await installEvt.userChoice.catch(() => null);
+    installEvt = null;
+    installBtn.classList.remove("show");
+  };
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* oflayn rejim ixtiyoriy */ });
+  }
   renderStreak();
   route();
   // Ovozlar kechroq yuklansa, sozlamalarni yangilash
