@@ -1,7 +1,7 @@
 {
   "name": "English Start — ingliz tili",
   "short_name": "English Start",
-  "description": "Beginner uchun grammatika, speaking va lug'at, o'zbekcha tushuntirishlar bilan.",
+  "description": "A1 dan C2 gacha grammatika, speaking va lug'at, o'zbekcha tushuntirishlar bilan.",
   "lang": "uz",
   "start_url": "./",
   "scope": "./",

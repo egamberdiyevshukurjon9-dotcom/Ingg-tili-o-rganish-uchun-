@@ -216,3 +216,11 @@ select { padding: 6px; border-radius: 8px; border: 1px solid var(--line); backgr
   .flash { min-height: 260px; font-size: 2rem; }
 }
 .list > .card { margin-bottom: 0; }
+
+/* Daraja tanlash tugmalari */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.chip {
+  min-width: 48px; text-align: center; padding: 8px 12px; border-radius: 999px; font-weight: 700; font-size: .9rem;
+  text-decoration: none; color: var(--primary); background: var(--primary-soft); border: 1.5px solid transparent;
+}
+.chip.on { background: var(--primary); color: #fff; }
