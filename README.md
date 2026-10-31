@@ -17,3 +17,22 @@ Ovozli mashqlar uchun Android'da **Chrome**, iPhone'da **Safari**, kompyuterda *
 `index.html` ni brauzerda oching yoki GitHub Pages orqali joylang (Settings → Pages → Branch: `main`, papka: `/ (root)`).
 
 Dars matnlari va mashqlar original: kitoblardan ko'chirilmagan, faqat mavzular ketma-ketligi olingan.
+
+## A1 dan C2 gacha
+
+- **Grammatika:** 58 dars — A1–A2 (20, *Essential Grammar in Use*), B1 (12) va B2 (12, *English Grammar in Use*), C1 (9) va C2 (5, *Advanced Grammar in Use*).
+- **Speaking:** 36 mavzu, IELTS Part 1/2/3 bo'yicha, darajaga mos namuna javoblar; 30 ta suhbat iborasi.
+- **Lug'at:** 234 so'z, A2 dan C2 gacha (akademik so'zlar, idiomalar, kollokatsiyalar).
+- **🎯 Daraja testi:** har darajadan 4 savol, natijaga qarab bugungi reja shu darajadan boshlanadi.
+
+## IELTS band 7: Writing va Speaking
+
+- **✍️ Writing:** Task 2 ning 6 turi (reja, band 7 maslahatlari, band 7.5+ namuna esse), Academic Task 1 ning 7 turi (ma'lumot jadvali va namuna), 18 mavzu bo'yicha g'oyalar banki, 10 guruh esse iboralari, 4 baholash mezoni.
+- **Yozish mashqi:** 40/20 daqiqalik taymer, so'z hisobi, avtomatik tekshiruv (paragraflar, bog'lovchilar, takrorlar, norasmiy so'zlar, overview/xulosa) va band 7 checklist; yozganlar saqlanadi.
+- **🎤 Speaking:** 7 ta band 7 strategiyasi (kuchsiz va kuchli javob solishtirmasi), 16 ta yangi Part 2/3 mavzu, Part 2 imtihon rejimi (1 daqiqa tayyorgarlik + 2 daqiqa), javob tahlili (tezlik, so'z xilma-xilligi, bog'lovchilar).
+
+## Android ilova (APK)
+
+`android/` papkasida WebView asosidagi ilova bor: sayt fayllari APK ichida (internetsiz ochiladi),
+ovozli o'qish va mikrofon telefonning o'z xizmatlari (TextToSpeech, SpeechRecognizer) orqali ishlaydi.
+Yig'ish tartibi `android/build-apk.sh` faylida yozilgan.

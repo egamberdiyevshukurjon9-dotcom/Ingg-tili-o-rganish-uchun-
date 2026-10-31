@@ -14,7 +14,7 @@
   --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #11151d;
     --card: #1a202b;
     --text: #e8ecf3;
@@ -27,7 +27,23 @@
     --bad: #ff7b6b;
     --bad-soft: #3a1f1c;
     --warn: #e7b14f;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #11151d;
+  --card: #1a202b;
+  --text: #e8ecf3;
+  --muted: #9aa4b5;
+  --line: #2c3442;
+  --primary: #6aa2ff;
+  --primary-soft: #1f2d45;
+  --ok: #4cc283;
+  --ok-soft: #173326;
+  --bad: #ff7b6b;
+  --bad-soft: #3a1f1c;
+  --warn: #e7b14f;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -55,7 +71,7 @@ main { max-width: 760px; margin: 0 auto; padding: 16px; outline: none; }
 
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 5;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   background: var(--card); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -169,3 +185,56 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 .back { display: inline-block; margin-bottom: 8px; text-decoration: none; font-size: .95rem; }
 .settings label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 8px 0; }
 select { padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); max-width: 60%; }
+
+.toast {
+  position: fixed; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 10;
+  max-width: 520px; margin: 0 auto; padding: 12px 14px; border-radius: 10px;
+  background: var(--text); color: var(--bg); font-size: .92rem; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+}
+.toast[hidden] { display: none; }
+.btn:focus-visible, .opt:focus-visible, .icon-btn:focus-visible, a:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.install { display: none; }
+.install.show { display: block; }
+
+/* Noutbuk va katta ekranlar: pastki menyu yuqoriga chiqadi, ro'yxatlar ikki ustun bo'ladi */
+@media (min-width: 900px) {
+  body { padding-bottom: 32px; }
+  .topbar { padding: 0 32px; height: 60px; gap: 24px; }
+  .tabbar {
+    position: sticky; top: 0; bottom: auto; z-index: 6;
+    display: flex; justify-content: center; gap: 4px;
+    border-top: 0; border-bottom: 1px solid var(--line); padding: 0;
+  }
+  .tabbar a { flex-direction: row; gap: 8px; font-size: .95rem; padding: 12px 18px; border-bottom: 3px solid transparent; }
+  .tabbar a span { font-size: 1.1rem; }
+  .tabbar a.active { border-bottom-color: var(--primary); }
+  .topbar { position: static; }
+  main { max-width: 980px; padding: 28px 32px; }
+  h1 { font-size: 1.8rem; }
+  .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toast { bottom: 24px; }
+  .flash { min-height: 260px; font-size: 2rem; }
+}
+.list > .card { margin-bottom: 0; }
+
+/* Daraja tanlash tugmalari */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.chip {
+  min-width: 48px; text-align: center; padding: 8px 12px; border-radius: 999px; font-weight: 700; font-size: .9rem;
+  text-decoration: none; color: var(--primary); background: var(--primary-soft); border: 1.5px solid transparent;
+}
+.chip.on { background: var(--primary); color: #fff; }
+
+/* Writing */
+textarea.notes, textarea.essay {
+  width: 100%; padding: 12px; font: inherit; font-size: 1rem; line-height: 1.6; border-radius: 10px;
+  border: 1.5px solid var(--line); background: var(--card); color: var(--text); resize: vertical; margin-top: 8px;
+}
+textarea.essay { min-height: 50vh; font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; }
+.wbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 3; margin-bottom: 0; }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.check:last-child { border-bottom: 0; }
+.check input { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+ul.rules.plain { list-style: none; padding-left: 0; }
+.feedback .btn { margin-left: 4px; }
+@media (max-width: 420px) { .tabbar a { font-size: .62rem; } }
