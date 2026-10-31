@@ -3,7 +3,7 @@
 
   // ---------- Saqlash (localStorage) ----------
   const KEY = "english-start-v1";
-  const blank = () => ({ quiz: {}, read: {}, said: 0, topics: {}, words: {}, days: [], voice: "", rate: 0.9, drafts: {}, essays: [], checks: {} });
+  const blank = () => ({ quiz: {}, read: {}, said: 0, topics: {}, words: {}, days: [], voice: "", rate: 0.9, drafts: {}, essays: [], checks: {}, xp: 0, xpDays: {}, srs: {}, colloc: {}, idq: {}, mist: [], strat: {} });
   let S = blank();
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { /* bo'sh holat */ }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* xotira yopiq */ } };
@@ -24,7 +24,7 @@
   }
   function renderStreak() {
     const n = streak();
-    document.getElementById("streak").textContent = n ? "🔥 " + n + " kun" : "";
+    document.getElementById("streak").textContent = (n ? "🔥 " + n + " kun  " : "") + "⭐ " + (S.xp || 0);
   }
 
   // ---------- Yordamchilar ----------
@@ -45,6 +45,54 @@
     toastTimer = setTimeout(() => (t.hidden = true), 5000);
   }
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+  // ---------- XP, kunlik maqsad va nishonlar (gamifikatsiya) ----------
+  const DAILY_GOAL = 50;
+  const RANKS = [[0, "Yangi boshlovchi"], [200, "Izlanuvchi"], [600, "Faol o'quvchi"], [1500, "Mohir"], [3500, "Ustoz"], [7000, "Ekspert"], [12000, "Proficiency ustasi"]];
+  const todayXP = () => (S.xpDays || {})[today()] || 0;
+  function rank(xp) {
+    let r = 0;
+    RANKS.forEach((x, k) => { if (xp >= x[0]) r = k; });
+    const next = RANKS[r + 1];
+    return { name: RANKS[r][1], from: RANKS[r][0], to: next ? next[0] : null };
+  }
+  function addXP(n) {
+    if (!n) return;
+    const before = todayXP();
+    S.xp = (S.xp || 0) + n;
+    S.xpDays = S.xpDays || {};
+    S.xpDays[today()] = before + n;
+    const keys = Object.keys(S.xpDays).sort();
+    if (keys.length > 120) keys.slice(0, keys.length - 120).forEach((k) => delete S.xpDays[k]);
+    save();
+    if (before < DAILY_GOAL && before + n >= DAILY_GOAL) toast("🎯 Kunlik maqsad bajarildi: " + DAILY_GOAL + " XP! Zo'r ish.");
+    renderStreak();
+  }
+
+  // ---------- Takrorlash tizimi (spaced repetition, Leitner qutilari) ----------
+  // Har "Bilaman" so'zni keyingi qutiga o'tkazadi: 1, 3, 7, 16, 35 kundan keyin yana so'raladi.
+  const SRS_DAYS = [0, 1, 3, 7, 16, 35];
+  const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  function srsGrade(key, ok) {
+    const c = S.srs[key] || { b: 0 };
+    c.b = ok ? Math.min(c.b + 1, SRS_DAYS.length - 1) : 0;
+    c.due = addDays(ok ? SRS_DAYS[c.b] : 0);
+    S.srs[key] = c;
+    if (key.indexOf("i:") !== 0) S.words[key] = ok ? (S.words[key] || 0) + 1 : 0;
+    save();
+  }
+  const isDue = (key) => S.srs[key] && S.srs[key].due <= today();
+  function allCards() {
+    const out = [];
+    VOCAB.forEach((t) => t.words.forEach((w) => out.push({ key: w[0], front: w[0], back: w[1], ex: w[2], col: w[3], say: w[0].replace(/ – /g, ", "), from: t.title })));
+    (window.IDIOMS || []).forEach((g) => g.items.forEach((x) => out.push({ key: "i:" + x.en, front: x.en, back: x.uz, ex: x.ex, col: x.def, say: x.en, from: "Idioma · " + g.title })));
+    return out;
+  }
+  const dueCards = () => allCards().filter((c) => isDue(c.key));
+  // Eski versiyada o'rganilgan so'zlar takrorlash tizimiga o'tkaziladi
+  Object.keys(S.words).forEach((k) => {
+    if (!S.srs[k] && S.words[k] > 0) { const b = Math.min(S.words[k], 3); S.srs[k] = { b, due: addDays(SRS_DAYS[b]) }; }
+  });
 
   // ---------- Ovoz: gapirish (TTS) ----------
   const synth = window.speechSynthesis;
@@ -172,7 +220,7 @@
           rp.textContent = "🎤";
           if (!t) { out.innerHTML = "Ovoz eshitilmadi. Yana urinib ko'ring."; return; }
           const r = compare(target, t);
-          S.said++; save(); markActive();
+          S.said++; save(); markActive(); addXP(r.score >= 60 ? 2 : 1);
           const msg = r.score >= 90 ? "Zo'r! 👏" : r.score >= 60 ? "Yaxshi, qizil so'zlarni yana bir bor ayting." : "Avval 🔊 tinglang, keyin sekinroq ayting.";
           out.innerHTML = '<span class="score">' + r.score + "%</span> — " + msg + "<br>" + r.marked +
             '<br><span class="muted">Siz aytdingiz: “' + esc(t) + "”</span>";
@@ -227,6 +275,7 @@
       '<div class="muted">' + lv + " darslari: " + lvDone + "/" + lvLessons.length + (lvDone === lvLessons.length && lvIdx < 5 ? ". Keyingi darajaga o'tishingiz mumkin!" : "") + "</div></div></div>" +
       '<div class="btns"><a class="btn ghost small" href="#/test">🎯 Daraja testi</a>' +
       '<select id="lvl" aria-label="Darajani tanlash">' + LEVELS.map((x) => '<option value="' + x + '"' + (x === lv ? " selected" : "") + ">" + x + " · " + LEVEL_NAME[x] + "</option>").join("") + "</select></div></div>" +
+      xpCard() +
       '<div class="card stats">' +
         '<div class="stat"><b>' + done + "/" + GRAMMAR.length + '</b><span class="muted">dars</span></div>' +
         '<div class="stat"><b>' + S.said + '</b><span class="muted">aytilgan gap</span></div>' +
@@ -237,6 +286,8 @@
       '<a class="card link" href="#/speaking/' + topic.id + '"><div class="row"><div class="num">2</div><div class="grow"><h3>🎤 ' + esc(topic.title) + ' <span class="badge">' + topic.level + '</span></h3><div class="muted">Savollarni tinglab, har biriga ' + (lvIdx >= 3 ? "1–2 daqiqa" : "20–30 soniya") + " javob bering.</div></div></div></a>" +
       '<a class="card link" href="#/vocab/' + vt.id + '"><div class="row"><div class="num">3</div><div class="grow"><h3>🗂️ ' + esc(vt.title) + ' <span class="badge">' + vt.level + '</span></h3><div class="muted">Kartochkalar: so\'zni tinglang, ma\'nosini eslang, ovoz chiqarib ayting.</div></div></div></a>' +
       (lvIdx >= 2 && window.WRITING && WRITING.task2 ? '<a class="card link" href="#/writing/t2-' + WRITING.task2[(S.essays || []).length % WRITING.task2.length].id + '"><div class="row"><div class="num">4</div><div class="grow"><h3>✍️ IELTS Writing <span class="badge">Band 7</span></h3><div class="muted">Bugun: ' + esc(WRITING.task2[(S.essays || []).length % WRITING.task2.length].title) + ". Rejani o'qing, 40 daqiqada yozing, tekshiring.</div></div></div></a>" : "") +
+      (dueCards().length ? '<a class="card link" href="#/review"><div class="row"><div class="num">🔁</div><div class="grow"><h3>Takrorlash: ' + dueCards().length + " ta so'z</h3><div class=\"muted\">Vaqti kelgan so'z va idiomalar. Avval shularni takrorlang: 5 daqiqa yetadi.</div></div></div></a>" : "") +
+      (lvIdx >= 3 && IDS().length ? (() => { const g = IDS().find((x) => !(S.idq[x.id] >= 80)) || IDS()[0]; return '<a class="card link" href="#/idiom/' + g.id + '"><div class="row"><div class="num">💬</div><div class="grow"><h3>Idiomalar: ' + esc(g.title) + ' <span class="badge">' + g.level + '</span></h3><div class="muted">10 ta idioma, kartochka va test. 2 tasini speaking javobingizda ishlating.</div></div></div></a>'; })() : "") +
       "<h2>Tez o'rganish sirlari</h2>" +
       '<div class="card"><ul class="rules">' +
         "<li><b>Har kuni oz-ozdan:</b> 30–60 daqiqa har kuni haftada bir marta 5 soatdan ancha samarali.</li>" +
@@ -302,6 +353,7 @@
     const l = GRAMMAR.find((x) => x.id === id);
     if (!l) return viewGrammarList();
     const idx = GRAMMAR.indexOf(l);
+    if (!S.read[id]) addXP(5);
     S.read[id] = true; save(); markActive();
     bindDrills(l.speak, "g-" + id + "-");
     bindDrills(l.examples.map((e) => e[0]), "ge-" + id + "-");
@@ -329,23 +381,21 @@
     );
   }
 
-  function viewQuiz(id) {
-    const l = GRAMMAR.find((x) => x.id === id);
-    if (!l) return viewGrammarList();
-    const qs = l.quiz.slice().sort(() => Math.random() - 0.5);
+  // Umumiy test: grammatika, kollokatsiya, idioma va xatolar daftari shu funksiyadan foydalanadi
+  function runQuiz(o) {
+    const qs = o.qs.slice().sort(() => Math.random() - 0.5);
     let i = 0, right = 0;
     const mistakes = [];
-
     function show() {
       if (i >= qs.length) return finish();
       const q = qs[i];
       html(
-        '<a class="back" href="#/grammar/' + id + '">← Darsga qaytish</a>' +
-        '<p class="muted">' + esc(l.title) + " · " + (i + 1) + "/" + qs.length + "</p>" +
+        '<a class="back" href="' + o.back + '">' + o.backText + "</a>" +
+        '<p class="muted">' + esc(o.title) + " · " + (i + 1) + "/" + qs.length + "</p>" +
         '<div class="progress"><div style="width:' + pct(i, qs.length) + '%"></div></div><br>' +
         '<div class="card"><div class="q">' + esc(q.q) + "</div>" +
         (q.o
-          ? '<div class="options">' + q.o.map((o, k) => '<button class="opt" data-k="' + k + '">' + esc(o) + "</button>").join("") + "</div>"
+          ? '<div class="options">' + q.o.map((x, k) => '<button class="opt" data-k="' + k + '">' + esc(x) + "</button>").join("") + "</div>"
           : '<form id="wf"><input class="answer" id="wa" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Javobni yozing"><div class="btns"><button class="btn">Tekshirish</button></div></form>') +
         '<div id="fb"></div></div>'
       );
@@ -357,8 +407,7 @@
         document.getElementById("wf").onsubmit = (e) => {
           e.preventDefault();
           if (!inp.value.trim()) return;
-          const ok = q.w.some((w) => norm(w) === norm(inp.value));
-          answer(ok, null, inp);
+          answer(q.w.some((w) => norm(w) === norm(inp.value)), null, inp);
         };
       }
     }
@@ -374,32 +423,53 @@
         inp.disabled = true;
         inp.parentNode.querySelector(".btn").remove();
       }
-      if (ok) right++; else mistakes.push(q);
       const correct = q.o ? q.o[q.a] : pretty(q.w[0]);
+      if (ok) {
+        right++;
+        // Xatolar daftaridagi savolga to'g'ri javob berilsa, u daftardan o'chadi
+        S.mist = (S.mist || []).filter((m) => m.q !== q.q);
+      } else {
+        mistakes.push(q);
+        S.mist = (S.mist || []).filter((m) => m.q !== q.q).concat([{ q: q.q, o: q.o, a: q.a, w: q.w, e: q.e || "", from: o.title }]).slice(-80);
+      }
+      save();
       document.getElementById("fb").innerHTML =
-        '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "✅ To'g'ri! " : "❌ To'g'ri javob: <b>" + esc(correct) + "</b>. ") + q.e + "</div>" +
+        '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "✅ To'g'ri! " : "❌ To'g'ri javob: <b>" + esc(correct) + "</b>. ") + (q.e || "") + "</div>" +
         '<div class="btns"><button class="btn" id="next">' + (i + 1 < qs.length ? "Keyingisi →" : "Natija") + "</button></div>";
       document.getElementById("next").onclick = () => { i++; show(); };
       document.getElementById("next").focus();
     }
     function finish() {
       const score = pct(right, qs.length);
-      S.quiz[id] = Math.max(S.quiz[id] || 0, score); save(); markActive();
-      const idx = GRAMMAR.indexOf(l);
+      markActive(); addXP(right * 2 + (score >= 90 ? 10 : 0));
+      const extra = o.onFinish ? o.onFinish(score) : {};
       html(
         "<h1>" + (score >= 70 ? "🎉 Ajoyib!" : "💪 Yana bir urinish") + "</h1>" +
-        '<div class="card"><p>Natija: <b>' + right + "/" + qs.length + " (" + score + "%)</b></p>" +
-        (score >= 70 ? "<p>Dars o'tildi. Endi Murphy kitobidagi " + esc(l.murphy) + " mashqlarini ishlang.</p>" : "<p>Qoidalarni qayta o'qing va testni yana bir bor ishlang. 70% kerak.</p>") +
-        "</div>" +
+        '<div class="card"><p>Natija: <b>' + right + "/" + qs.length + " (" + score + "%)</b> · +" + (right * 2 + (score >= 90 ? 10 : 0)) + " XP</p>" + (extra.note || "") + "</div>" +
         (mistakes.length ? "<h2>Xatolar ustida ishlash</h2>" + mistakes.map((q) =>
-          '<div class="card"><b>' + esc(q.q) + '</b><div class="muted">To\'g\'ri: ' + esc(q.o ? q.o[q.a] : pretty(q.w[0])) + " — " + q.e + "</div></div>").join("") : "") +
-        '<div class="btns"><a class="btn ghost" href="#/quiz/' + id + '" id="again">🔁 Qayta ishlash</a>' +
-        (GRAMMAR[idx + 1] && score >= 70 ? '<a class="btn" href="#/grammar/' + GRAMMAR[idx + 1].id + '">Keyingi dars →</a>' : '<a class="btn" href="#/grammar/' + id + '">Darsni qayta o\'qish</a>') +
-        "</div>"
+          '<div class="card"><b>' + esc(q.q) + '</b><div class="muted">To\'g\'ri: ' + esc(q.o ? q.o[q.a] : pretty(q.w[0])) + " — " + (q.e || "") + "</div></div>").join("") +
+          '<p class="muted">Bu savollar 📒 Xatolar daftariga yozildi (Natijalarim sahifasi).</p>' : "") +
+        '<div class="btns"><a class="btn ghost" href="#" id="again">🔁 Qayta ishlash</a>' + (extra.next || "") + "</div>"
       );
-      document.getElementById("again").onclick = (e) => { e.preventDefault(); viewQuiz(id); };
+      document.getElementById("again").onclick = (e) => { e.preventDefault(); runQuiz(o); };
     }
     show();
+  }
+
+  function viewQuiz(id) {
+    const l = GRAMMAR.find((x) => x.id === id);
+    if (!l) return viewGrammarList();
+    const idx = GRAMMAR.indexOf(l);
+    runQuiz({
+      title: l.title, qs: l.quiz, back: "#/grammar/" + id, backText: "← Darsga qaytish",
+      onFinish: (score) => {
+        S.quiz[id] = Math.max(S.quiz[id] || 0, score); save();
+        return {
+          note: score >= 70 ? "<p>Dars o'tildi. Endi Murphy kitobidagi " + esc(l.murphy) + " mashqlarini ishlang.</p>" : "<p>Qoidalarni qayta o'qing va testni yana bir bor ishlang. 70% kerak.</p>",
+          next: GRAMMAR[idx + 1] && score >= 70 ? '<a class="btn" href="#/grammar/' + GRAMMAR[idx + 1].id + '">Keyingi dars →</a>' : '<a class="btn" href="#/grammar/' + id + '">Darsni qayta o\'qish</a>'
+        };
+      }
+    });
   }
 
   function viewSpeakingList(lv) {
@@ -481,7 +551,7 @@
       '<button class="btn ghost small" data-speak="' + esc(t.sample) + '">🔊 Tinglash</button></details>' +
       '<div class="btns"><button class="btn" id="done">✓ Mavzu bajarildi</button></div>'
     );
-    document.getElementById("done").onclick = () => { S.topics[id] = true; save(); markActive(); location.hash = "#/speaking/" + t.level; };
+    document.getElementById("done").onclick = () => { if (!S.topics[id]) addXP(15); S.topics[id] = true; save(); markActive(); location.hash = "#/speaking/" + t.level; };
 
     let rec = null, timer = null;
     const stopAll = () => { if (rec) rec.stop(); };
@@ -503,7 +573,7 @@
           rec = null;
           b.textContent = "🎤 Qayta javob berish";
           if (!txt) { out.innerHTML = '<span class="muted">Ovoz eshitilmadi.</span>'; return; }
-          S.said++; save(); markActive();
+          S.said++; save(); markActive(); addXP(3);
           out.innerHTML = speechReport(txt, sec, t.level);
         }
       });
@@ -535,7 +605,7 @@
             ex.textContent = "🔁 Yana boshlash";
             tm.textContent = fmt(sec);
             if (!txt) { out.innerHTML = '<span class="muted">Ovoz eshitilmadi.</span>'; return; }
-            S.said++; save(); markActive();
+            S.said++; save(); markActive(); addXP(3);
             out.innerHTML = (sec < 90 ? '<div class="feedback bad">Atigi ' + fmt(sec) + " gapirdingiz. Band 7 uchun 1:45–2:00 gapiring: har bir bandni kengaytiring, misol va his-tuyg'u qo'shing.</div>" : '<div class="feedback ok">Vaqt yaxshi: ' + fmt(sec) + "</div>") + speechReport(txt, sec, t.level);
           }
         });
@@ -575,12 +645,18 @@
       '<p style="margin-top:10px">' + esc(g.example.why) + "</p></div>");
   }
 
+  function vocabTabs(active) {
+    const due = dueCards().length;
+    const tabs = [["#/vocab", "words", "🗂️ So'zlar"], ["#/vocab/idioms", "idioms", "💬 Idiomalar"], ["#/vocab/colloc", "colloc", "🧩 Kollokatsiyalar"], ["#/review", "review", "🔁 Takrorlash" + (due ? " (" + due + ")" : "")]];
+    return '<div class="chips">' + tabs.map((t) => '<a class="chip' + (t[1] === active ? " on" : "") + '" href="' + t[0] + '">' + t[2] + "</a>").join("") + "</div>";
+  }
+
   function viewVocabList(lv) {
     lv = LEVELS.includes(lv) ? lv : myLevel();
     const list = byLevel(VOCAB, lv === "A1" ? "A2" : lv);
     html(
-      "<h1>🗂️ Lug'at</h1>" +
-      '<p class="muted">Kartochkani bosib ma\'nosini ko\'ring, keyin “Bilaman” yoki “Takrorlash” ni tanlang. 2 marta “Bilaman” desangiz, so\'z o\'zlashtirilgan hisoblanadi. Jami: ' + totalWords() + " so'z.</p>" +
+      "<h1>🗂️ Lug'at</h1>" + vocabTabs("words") +
+      '<p class="muted">Kartochkani bosib ma\'nosini ko\'ring, keyin “Bilaman” yoki “Takrorlash” ni tanlang. Bilgan so\'zingiz 1, 3, 7, 16 va 35 kundan keyin 🔁 Takrorlash bo\'limida qayta so\'raladi: shunda so\'z uzoq xotiraga o\'tadi. Jami: ' + totalWords() + " so'z.</p>" +
       levelTabs("vocab", lv) +
       (lv === "A1" ? '<p class="muted">A1 va A2 so\'zlari birga berilgan.</p>' : "") +
       '<div class="list">' +
@@ -593,49 +669,275 @@
     );
   }
 
-  function viewCards(id) {
-    const t = VOCAB.find((x) => x.id === id);
-    if (!t) return viewVocabList();
-    // Hali o'zlashtirilmagan so'zlar oldinda
-    let deck = t.words.slice().sort((a, b) => (S.words[a[0]] || 0) - (S.words[b[0]] || 0));
-    let i = 0, flipped = false;
+  // Kartochkalar: so'zlar, idiomalar va takrorlash uchun bitta umumiy oyna
+  function runDeck(o) {
+    let deck = o.cards.slice();
+    const failed = new Set();
+    let i = 0, flipped = false, knew = 0;
     function show() {
       if (i >= deck.length) {
         markActive();
-        html('<a class="back" href="#/vocab/' + t.level + '">← Mavzular</a><h1>✅ Tugadi</h1><div class="card"><p>O\'zlashtirilgan: <b>' +
-          t.words.filter((w) => S.words[w[0]] >= 2).length + "/" + t.words.length + '</b></p></div><div class="btns"><a class="btn ghost" href="#/vocab/' + id + '" id="again">🔁 Yana</a><a class="btn" href="#/vocab">Boshqa mavzu</a></div>');
-        document.getElementById("again").onclick = (e) => { e.preventDefault(); viewCards(id); };
+        html('<a class="back" href="' + o.back + '">' + o.backText + '</a><h1>✅ Tugadi</h1><div class="card"><p>Bilganlaringiz: <b>' + knew + "/" + o.cards.length + "</b></p>" +
+          '<p class="muted">Keyingi takrorlash: 🔁 Takrorlash bo\'limida. Bugun qayta so\'raladigan so\'zlar: ' + dueCards().length + ".</p></div>" +
+          '<div class="btns"><a class="btn ghost" href="#" id="again">🔁 Yana</a><a class="btn" href="' + o.back + '">' + (o.doneText || "Boshqa mavzu") + "</a></div>");
+        document.getElementById("again").onclick = (e) => { e.preventDefault(); o.again ? o.again() : runDeck(o); };
         return;
       }
-      const w = deck[i];
+      const c = deck[i];
       flipped = false;
-      drillTexts["v-" + id] = w[0].split(" – ")[0];
+      drillTexts["card"] = c.say.split(", ")[0];
+      const box = (S.srs[c.key] || {}).b || 0;
       html(
-        '<a class="back" href="#/vocab/' + t.level + '">← Mavzular</a>' +
-        '<p class="muted">' + esc(t.title) + " · " + (i + 1) + "/" + deck.length + "</p>" +
-        '<div class="card flash" id="fc">' + esc(w[0]) + "<small>Bosing: ma'nosi</small></div>" +
-        '<div class="card" style="display:flex;gap:8px;align-items:center"><div class="grow transcript muted" id="tr-v-' + id + '">So\'zni tinglang va ovoz chiqarib ayting.</div>' +
-        '<button class="icon-btn" data-speak="' + esc(w[0].replace(/ – /g, ", ")) + '">🔊</button>' +
-        (SR ? '<button class="icon-btn" data-repeat="v-' + id + '">🎤</button>' : "") + "</div>" +
+        '<a class="back" href="' + o.back + '">' + o.backText + "</a>" +
+        '<p class="muted">' + esc(o.title) + " · " + (i + 1) + "/" + deck.length + (c.from && o.showFrom ? " · " + esc(c.from) : "") + ' · <span class="badge">' + (box ? "📦 " + box + "-quti" : "yangi") + "</span></p>" +
+        '<div class="progress"><div style="width:' + pct(i, deck.length) + '%"></div></div><br>' +
+        '<div class="card flash" id="fc">' + esc(c.front) + "<small>Bosing: ma'nosi</small></div>" +
+        '<div class="card" style="display:flex;gap:8px;align-items:center"><div class="grow transcript muted" id="tr-card">Tinglang va ovoz chiqarib ayting.</div>' +
+        '<button class="icon-btn" data-speak="' + esc(c.say) + '" aria-label="Tinglash">🔊</button>' +
+        (SR ? '<button class="icon-btn" data-repeat="card" aria-label="Aytish">🎤</button>' : "") + "</div>" +
         '<div class="btns"><button class="btn ghost" id="again">🔁 Takrorlash</button><button class="btn" id="know">✓ Bilaman</button></div>'
       );
       const fc = document.getElementById("fc");
       fc.onclick = () => {
         flipped = !flipped;
         fc.innerHTML = flipped
-          ? esc(w[1]) + "<small>" + esc(w[2]) + "</small>"
-          : esc(w[0]) + "<small>Bosing: ma'nosi</small>";
-        if (flipped) speak(w[2]);
+          ? esc(c.back) + "<small>" + esc(c.ex) + (c.col ? "<br><i>" + esc(c.col) + "</i>" : "") + "</small>"
+          : esc(c.front) + "<small>Bosing: ma'nosi</small>";
+        if (flipped) speak(c.ex);
       };
-      document.getElementById("know").onclick = () => { S.words[w[0]] = (S.words[w[0]] || 0) + 1; save(); i++; show(); };
-      document.getElementById("again").onclick = () => { S.words[w[0]] = 0; save(); deck.push(w); i++; show(); };
+      document.getElementById("know").onclick = () => {
+        if (!failed.has(c.key)) { srsGrade(c.key, true); knew++; addXP(1); }
+        i++; show();
+      };
+      document.getElementById("again").onclick = () => {
+        srsGrade(c.key, false);
+        if (!failed.has(c.key)) { failed.add(c.key); deck.push(c); }
+        i++; show();
+      };
     }
     show();
+  }
+  // Avval vaqti kelgan, keyin yangi, keyin eng past qutidagi so'zlar
+  function orderCards(cards) {
+    const rankOf = (c) => (isDue(c.key) ? 0 : !S.srs[c.key] ? 1 : 2 + S.srs[c.key].b);
+    return cards.slice().sort((a, b) => rankOf(a) - rankOf(b));
+  }
+
+  function viewCards(id) {
+    const t = VOCAB.find((x) => x.id === id);
+    if (!t) return viewVocabList();
+    const cards = allCards().filter((c) => t.words.some((w) => w[0] === c.key));
+    runDeck({ title: t.title, cards: orderCards(cards), back: "#/vocab/" + t.level, backText: "← Mavzular", again: () => viewCards(id) });
+  }
+
+  function viewReview() {
+    const due = dueCards();
+    const learned = Object.keys(S.srs).length;
+    if (!due.length) {
+      const next = Object.values(S.srs).map((c) => c.due).sort()[0];
+      html("<h1>🔁 Takrorlash</h1>" + vocabTabs("review") +
+        '<div class="card"><h3>Bugun takrorlanadigan so\'z yo\'q 🎉</h3><p class="muted">' +
+        (learned ? "Xotirangizda " + learned + " ta so'z va idioma bor. Keyingi takrorlash: " + esc(next || "") + "." : "Avval Lug'at yoki Idiomalar kartochkalarini ishlang: “Bilaman” degan so'zlaringiz shu yerga vaqti kelganda qaytadi.") +
+        "</p></div>" +
+        '<div class="card"><h3>Nega takrorlash kerak?</h3><p class="muted">Tadqiqotlar (spaced repetition, retrieval practice) ko\'rsatadiki, so\'zni bir kunda 10 marta o\'qigandan ko\'ra, oraliq bilan 4–5 marta <b>eslab ko\'rish</b> ancha samarali. Ilova har so\'zni 1, 3, 7, 16, 35 kundan keyin qayta so\'raydi. Xato qilsangiz, so\'z boshiga qaytadi.</p></div>' +
+        '<div class="btns"><a class="btn" href="#/vocab">🗂️ Yangi so\'zlar</a><a class="btn ghost" href="#/vocab/idioms">💬 Idiomalar</a></div>');
+      return;
+    }
+    runDeck({ title: "Takrorlash", cards: due.slice(0, 40), back: "#/review", backText: "← Takrorlash", doneText: "Davom etish", showFrom: true, again: viewReview });
+  }
+
+  // ---------- Idiomalar ----------
+  const IDS = () => window.IDIOMS || [];
+  function viewIdiomList() {
+    html("<h1>💬 Idiomalar</h1>" + vocabTabs("idioms") +
+      '<p class="muted">Idioma: so\'zma-so\'z tarjima qilib bo\'lmaydigan turg\'un ibora. IELTS Speaking\'da tabiiy ishlatilgan 2–3 ta idioma Lexical Resource balini oshiradi. Writing (esse) da ko\'pchiligi juda norasmiy: har idiomadagi belgiga qarang. Tushuntirish va misollar ilova uchun yangidan yozilgan, mavzular English Idioms in Use Advanced tartibiga mos.</p>' +
+      '<div class="list">' + IDS().map((g) => {
+        const k = g.items.filter((x) => ((S.srs["i:" + x.en] || {}).b || 0) >= 2).length;
+        return '<a class="card link" href="#/idiom/' + g.id + '"><div class="row"><div class="grow"><h3>' + esc(g.title) + ' <span class="badge">' + g.level + '</span></h3><div class="progress"><div style="width:' + pct(k, g.items.length) + '%"></div></div><div class="muted">Test: ' + (S.idq[g.id] != null ? S.idq[g.id] + "%" : "—") + "</div></div>" +
+          '<span class="badge' + (k === g.items.length ? " ok" : "") + '">' + k + "/" + g.items.length + "</span></div></a>";
+      }).join("") + "</div>");
+  }
+  const REG = { informal: "norasmiy", neutral: "neytral", formal: "rasmiy" };
+  function viewIdiomGroup(id) {
+    const g = IDS().find((x) => x.id === id);
+    if (!g) return viewIdiomList();
+    html('<a class="back" href="#/vocab/idioms">← Idiomalar</a><h1>' + esc(g.title) + ' <span class="badge">' + g.level + "</span></h1>" +
+      '<p class="muted">' + esc(g.intro || "") + "</p>" +
+      '<div class="btns" style="margin-bottom:12px"><a class="btn" href="#/idiomcards/' + g.id + '">🗂️ Kartochkalar</a><a class="btn ghost" href="#/idiomquiz/' + g.id + '">📝 Test</a></div>' +
+      g.items.map((x) => '<div class="card"><div class="row"><div class="grow"><h3>' + esc(x.en) + ' <span class="badge">' + esc(REG[x.reg] || x.reg || "") + "</span></h3>" +
+        "<div>" + esc(x.uz) + '</div><div class="muted"><i>' + esc(x.def) + "</i></div></div>" +
+        '<button class="icon-btn" data-speak="' + esc(x.en) + '" aria-label="Tinglash">🔊</button></div>' +
+        '<div class="example"><div class="grow en">' + esc(x.ex) + '</div><button class="icon-btn" data-speak="' + esc(x.ex) + '" aria-label="Misolni tinglash">🔊</button></div>' +
+        (x.tip ? '<div class="muted">💡 ' + esc(x.tip) + "</div>" : "") + "</div>").join(""));
+  }
+  function viewIdiomCards(id) {
+    const g = IDS().find((x) => x.id === id);
+    if (!g) return viewIdiomList();
+    const cards = allCards().filter((c) => g.items.some((x) => "i:" + x.en === c.key));
+    runDeck({ title: g.title, cards: orderCards(cards), back: "#/idiom/" + id, backText: "← " + g.title, doneText: "Idiomalar ro'yxati", again: () => viewIdiomCards(id) });
+  }
+  const shuffle = (a) => a.slice().sort(() => Math.random() - 0.5);
+  function idiomQuestions(g) {
+    // Har idioma uchun: ta'rifdan idiomani topish yoki o'zbekcha ma'nodan topish
+    return g.items.map((x, k) => {
+      const others = shuffle(g.items.filter((y) => y !== x)).slice(0, 3).map((y) => y.en);
+      const o = shuffle(others.concat([x.en]));
+      const byDef = k % 2 === 0;
+      return { q: (byDef ? "Qaysi idioma shu ma'noni beradi: “" + x.def + "”?" : "Qaysi idioma: “" + x.uz + "”?"), o, a: o.indexOf(x.en), e: "Misol: <i>" + esc(x.ex) + "</i>" };
+    });
+  }
+  function viewIdiomQuiz(id) {
+    const g = IDS().find((x) => x.id === id);
+    if (!g) return viewIdiomList();
+    runQuiz({
+      title: "Idiomalar · " + g.title, qs: idiomQuestions(g), back: "#/idiom/" + id, backText: "← " + g.title,
+      onFinish: (score) => {
+        S.idq[id] = Math.max(S.idq[id] || 0, score); save();
+        const idx = IDS().indexOf(g), nx = IDS()[idx + 1];
+        return { note: score >= 80 ? "<p>Endi bu idiomalardan 2 tasini bugungi speaking javobingizda ishlating.</p>" : "<p>Kartochkalarni yana bir bor ishlab, testni qaytaring.</p>",
+          next: nx ? '<a class="btn" href="#/idiom/' + nx.id + '">Keyingi: ' + esc(nx.title) + "</a>" : "" };
+      }
+    });
+  }
+
+  // ---------- Kollokatsiyalar ----------
+  const COLS = () => window.COLLOCATIONS || [];
+  function viewCollocList() {
+    html("<h1>🧩 Kollokatsiyalar</h1>" + vocabTabs("colloc") +
+      '<p class="muted">Kollokatsiya: ona tilida so\'zlashuvchilar odatda birga ishlatadigan so\'zlar (<b>make</b> a decision, <b>heavy</b> rain, <b>highly</b> likely). Ular katta matn korpuslari (BNC, COCA) tahlilidan aniqlanadi. To\'g\'ri kollokatsiya IELTS Lexical Resource mezonida band 7 belgisi.</p>' +
+      '<div class="list">' + COLS().map((c) => '<a class="card link" href="#/colloc/' + c.id + '"><div class="row"><div class="grow"><h3>' + esc(c.title) + ' <span class="badge">' + c.level + '</span></h3><div class="muted">' + c.pairs.length + " ta birikma · test: " + (S.colloc[c.id] != null ? S.colloc[c.id] + "%" : "—") + "</div></div>" +
+        (S.colloc[c.id] >= 80 ? '<span class="badge ok">✓</span>' : "") + "</div></a>").join("") + "</div>" +
+      '<div class="card"><h3>Korpusdan o\'zingiz qidiring</h3><p class="muted">So\'z bilan qaysi so\'zlar ko\'p ishlatilishini bilish uchun: <a href="https://www.english-corpora.org/coca/" target="_blank" rel="noopener">COCA ↗</a>, <a href="https://youglish.com" target="_blank" rel="noopener">YouGlish ↗</a>, <a href="https://www.freecollocation.com" target="_blank" rel="noopener">Online Collocation Dictionary ↗</a>. Masalan, “problem” so\'zidan oldin qaysi fe\'llar kelishini qidiring: solve, tackle, address, pose.</p></div>');
+  }
+  function viewColloc(id) {
+    const c = COLS().find((x) => x.id === id);
+    if (!c) return viewCollocList();
+    html('<a class="back" href="#/vocab/colloc">← Kollokatsiyalar</a><h1>' + esc(c.title) + ' <span class="badge">' + c.level + "</span></h1>" +
+      '<div class="notice">' + esc(c.intro || "") + "</div>" +
+      '<div class="btns" style="margin-bottom:12px"><a class="btn" href="#/cquiz/' + c.id + '">📝 Test (' + c.quiz.length + ")</a></div>" +
+      '<div class="card">' + c.pairs.map((p) => '<div class="example"><div class="grow"><div class="en">' + esc(p[0]) + '</div><div class="uz">' + esc(p[1]) + '</div><div class="muted"><i>' + esc(p[2] || "") + "</i></div></div>" +
+        '<button class="icon-btn" data-speak="' + esc(p[2] || p[0]) + '" aria-label="Tinglash">🔊</button></div>').join("") + "</div>");
+  }
+  function viewCollocQuiz(id) {
+    const c = COLS().find((x) => x.id === id);
+    if (!c) return viewCollocList();
+    runQuiz({
+      title: "Kollokatsiya · " + c.title, qs: c.quiz.map((q) => { const o = shuffle(q.o); return Object.assign({}, q, { o, a: o.indexOf(q.o[q.a]) }); }), back: "#/colloc/" + id, backText: "← " + c.title,
+      onFinish: (score) => {
+        S.colloc[id] = Math.max(S.colloc[id] || 0, score); save();
+        const nx = COLS()[COLS().indexOf(c) + 1];
+        return { note: "<p>Har birikmani o'zingiz haqingizda bitta gapda ishlating va ovoz chiqarib ayting.</p>", next: nx ? '<a class="btn" href="#/colloc/' + nx.id + '">Keyingi: ' + esc(nx.title) + "</a>" : "" };
+      }
+    });
+  }
+
+  // ---------- Natijalarim: XP, nishonlar, statistika, xatolar daftari ----------
+  function badges() {
+    const st = streak(), known = knownWords(), ess = (S.essays || []).length;
+    const lvDone = (lv) => byLevel(GRAMMAR, lv).every((l) => S.quiz[l.id] >= 70);
+    const idiomsKnown = Object.keys(S.srs).filter((k) => k.indexOf("i:") === 0 && S.srs[k].b >= 2).length;
+    const colDone = Object.values(S.colloc).filter((v) => v >= 80).length;
+    return [
+      ["🌱", "Birinchi qadam", "Birinchi grammatika darsini o'qing", Object.keys(S.read).length >= 1],
+      ["🔥", "Bir hafta", "7 kun ketma-ket o'qing", st >= 7],
+      ["🏅", "Bir oy", "30 kun ketma-ket o'qing", st >= 30],
+      ["🗣️", "Gapiruvchi", "100 ta gapni ovoz chiqarib ayting", S.said >= 100],
+      ["🎙️", "Notiq", "500 ta gapni ayting", S.said >= 500],
+      ["📗", "100 so'z", "100 so'zni o'zlashtiring", known >= 100],
+      ["📚", "500 so'z", "500 so'zni o'zlashtiring", known >= 500],
+      ["💬", "Idioma ustasi", "50 ta idiomani o'zlashtiring", idiomsKnown >= 50],
+      ["🧩", "Kollokator", "5 ta kollokatsiya testidan 80%+", colDone >= 5],
+      ["✍️", "Yozuvchi", "10 ta esse yozing", ess >= 10],
+      ["🅰️", "A daraja", "A1–A2 darslarining hammasi", lvDone("A1") && lvDone("A2")],
+      ["🅱️", "B daraja", "B1–B2 darslarining hammasi", lvDone("B1") && lvDone("B2")],
+      ["🏆", "C daraja", "C1–C2 darslarining hammasi", lvDone("C1") && lvDone("C2")],
+      ["⭐", "1000 XP", "Jami 1000 XP to'plang", (S.xp || 0) >= 1000]
+    ];
+  }
+  function xpCard() {
+    const xp = S.xp || 0, r = rank(xp), t = todayXP();
+    return '<a class="card link" href="#/progress"><div class="row"><div class="grow"><div class="muted">⭐ ' + xp + " XP · " + esc(r.name) + "</div>" +
+      '<div class="progress" style="margin:6px 0"><div style="width:' + Math.min(100, pct(t, DAILY_GOAL)) + '%;background:var(--ok)"></div></div>' +
+      '<div class="muted">Bugun: ' + t + "/" + DAILY_GOAL + " XP" + (t >= DAILY_GOAL ? " ✅" : "") + "</div></div>" +
+      '<span class="badge">Natijalarim →</span></div></a>';
+  }
+  function viewProgress() {
+    const xp = S.xp || 0, r = rank(xp);
+    const days = [];
+    for (let k = 13; k >= 0; k--) { const d = new Date(); d.setDate(d.getDate() - k); const key = d.toISOString().slice(0, 10); days.push([key, (S.xpDays || {})[key] || 0]); }
+    const max = Math.max(DAILY_GOAL, ...days.map((d) => d[1]));
+    const bs = badges();
+    const strat = (window.RESEARCH && RESEARCH.strategies) || [];
+    const wk = (() => { const d = new Date(); const y = d.getFullYear(); const start = new Date(y, 0, 1); return y + "-w" + Math.ceil(((d - start) / 864e5 + start.getDay() + 1) / 7); })();
+    S.strat = S.strat || {};
+    const mine = S.strat[wk] || {};
+    html("<h1>📈 Natijalarim</h1>" +
+      '<div class="card"><div class="row"><div class="grow"><h3 style="font-size:1.3rem">⭐ ' + xp + " XP · " + esc(r.name) + "</h3>" +
+      (r.to ? '<div class="progress"><div style="width:' + pct(xp - r.from, r.to - r.from) + '%"></div></div><div class="muted">Keyingi unvongacha: ' + (r.to - xp) + " XP</div>" : '<div class="muted">Eng yuqori unvon!</div>') +
+      '</div></div><p class="muted" style="margin-top:8px">XP: dars o\'qish +5, test har to\'g\'ri javob +2, gapni aytish +1–3, speaking mavzu +15, esse +10–25, kartochka +1. Kunlik maqsad: ' + DAILY_GOAL + " XP.</p></div>" +
+      "<h2>So'nggi 14 kun</h2>" +
+      '<div class="card"><div style="display:flex;align-items:flex-end;gap:4px;height:120px" aria-label="Kunlik XP">' +
+      days.map((d) => '<div title="' + d[0] + ": " + d[1] + ' XP" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="height:' + Math.max(2, pct(d[1], max)) + '%;background:' + (d[1] >= DAILY_GOAL ? "var(--ok)" : "var(--primary)") + ';border-radius:4px 4px 0 0"></div></div>').join("") +
+      '</div><div class="row muted" style="justify-content:space-between;font-size:.75rem"><span>' + days[0][0].slice(5) + "</span><span>bugun</span></div></div>" +
+      "<h2>Darajalar bo'yicha</h2>" +
+      '<div class="card table-wrap"><table><thead><tr><th>Daraja</th><th>Grammatika</th><th>So\'zlar</th><th>Speaking</th></tr></thead><tbody>' +
+      LEVELS.map((lv) => {
+        const gl = byLevel(GRAMMAR, lv), vl = byLevel(VOCAB, lv), sl = byLevel(SPEAKING, lv);
+        const vw = vl.reduce((n, t) => n + t.words.length, 0), vk = vl.reduce((n, t) => n + t.words.filter((w) => S.words[w[0]] >= 2).length, 0);
+        return "<tr><td><b>" + lv + "</b></td><td>" + gl.filter((l) => S.quiz[l.id] >= 70).length + "/" + gl.length + "</td><td>" + (vw ? vk + "/" + vw : "—") + "</td><td>" + (sl.length ? sl.filter((t) => S.topics[t.id]).length + "/" + sl.length : "—") + "</td></tr>";
+      }).join("") +
+      "</tbody></table><p class=\"muted\" style=\"margin-top:8px\">Idiomalar: " + Object.keys(S.srs).filter((k) => k.indexOf("i:") === 0 && S.srs[k].b >= 2).length + " · Kollokatsiya testlari: " + Object.keys(S.colloc).length + "/" + COLS().length + " · Esselar: " + (S.essays || []).length + " · Aytilgan gaplar: " + S.said + "</p></div>" +
+      "<h2>Nishonlar</h2>" +
+      '<div class="list">' + bs.map((b) => '<div class="card" style="' + (b[3] ? "" : "opacity:.55") + '"><div class="row"><div style="font-size:1.8rem">' + (b[3] ? b[0] : "🔒") + '</div><div class="grow"><h3>' + esc(b[1]) + '</h3><div class="muted">' + esc(b[2]) + "</div></div>" + (b[3] ? '<span class="badge ok">✓</span>' : "") + "</div></div>").join("") + "</div>" +
+      "<h2>📒 Xatolar daftari</h2>" +
+      ((S.mist || []).length
+        ? '<div class="card"><p>Testlarda xato qilgan <b>' + S.mist.length + "</b> ta savolingiz saqlangan. To'g'ri javob bersangiz, daftardan o'chadi.</p>" +
+          '<div class="btns"><a class="btn" href="#/mistakes">📝 Xatolarni qayta ishlash</a></div></div>'
+        : '<div class="card muted">Hozircha xato yo\'q. Testlarda xato qilsangiz, savol shu yerga tushadi.</div>') +
+      (strat.length ? "<h2>🧠 O'rganish strategiyalari: bu hafta</h2>" +
+        '<p class="muted">Tadqiqotlar (Oxford, 1990; self-regulated learning) ko\'rsatadiki, ongli strategiya ishlatgan o\'quvchilar tezroq o\'sadi. Bu hafta qilganlaringizni belgilang.</p>' +
+        strat.map((g, gi) => '<div class="card"><h3>' + esc(g.group) + "</h3>" + g.items.map((it, ii) => {
+          const key = gi + "-" + ii;
+          return '<label class="check"><input type="checkbox" data-strat="' + key + '"' + (mine[key] ? " checked" : "") + "><span>" + esc(it) + "</span></label>";
+        }).join("") + "</div>").join("") : "") +
+      '<div class="btns"><a class="btn ghost" href="#/research">🔬 Ilmiy manbalar</a></div>');
+    app.querySelectorAll("[data-strat]").forEach((cb) => (cb.onchange = () => {
+      S.strat[wk] = S.strat[wk] || {};
+      if (cb.checked) { S.strat[wk][cb.dataset.strat] = 1; addXP(2); } else delete S.strat[wk][cb.dataset.strat];
+      const ks = Object.keys(S.strat).sort(); if (ks.length > 12) delete S.strat[ks[0]];
+      save();
+    }));
+  }
+  function viewMistakes() {
+    const m = (S.mist || []).filter((q) => (q.o && q.o.length) || (q.w && q.w.length));
+    if (!m.length) { location.hash = "#/progress"; return; }
+    runQuiz({ title: "Xatolar daftari", qs: m.slice(-15), back: "#/progress", backText: "← Natijalarim",
+      onFinish: () => ({ note: "<p>Qolgan xatolar: " + (S.mist || []).length + ".</p>", next: '<a class="btn" href="#/progress">Natijalarim</a>' }) });
+  }
+
+  // ---------- Ilmiy manbalar ----------
+  function viewResearch() {
+    const R = window.RESEARCH;
+    if (!R) return viewBooks();
+    html('<a class="back" href="#/books">← Manbalar</a><h1>🔬 Ilmiy manbalar</h1>' +
+      '<p class="muted">' + esc(R.intro || "") + "</p>" +
+      "<h2>Scopus jurnallari (ELT)</h2>" +
+      '<div class="list">' + (R.journals || []).map((j) => '<a class="card link" href="' + esc(j.url) + '" target="_blank" rel="noopener"><h3>' + esc(j.name) + ' ↗</h3><div class="muted">' + esc(j.publisher || "") + (j.quartile ? " · " + esc(j.quartile) : "") + "</div><div>" + esc(j.focus || "") + "</div></a>").join("") + "</div>" +
+      "<h2>Tadqiqot yo'nalishlari va ilovada qo'llanishi</h2>" +
+      (R.trends || []).map((t) => '<div class="card"><h3>' + esc(t.title) + ' <span class="badge">' + esc(t.en || "") + "</span></h3><p>" + esc(t.what || "") + '</p><p class="muted">👉 ' + esc(t.how || "") + "</p>" +
+        (t.tryIt ? '<a class="btn small ghost" href="' + esc(t.tryIt) + '">Sinab ko\'rish →</a>' : "") + "</div>").join("") +
+      "<h2>O'rganish strategiyalari (LLS)</h2>" +
+      (R.strategies || []).map((g) => '<div class="card"><h3>' + esc(g.group) + '</h3><ul class="rules">' + g.items.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></div>").join("") +
+      "<h2>Scopus maqolasi tuzilishi (IMRAD)</h2>" +
+      (R.imrad || []).map((p) => '<details class="card"><summary>' + esc(p.part) + '</summary><p style="margin-top:8px">' + esc(p.uz || "") + "</p>" +
+        (p.phrases || []).map((x) => '<div class="example"><div class="grow en">' + esc(x) + '</div><button class="icon-btn" data-speak="' + esc(x) + '" aria-label="Tinglash">🔊</button></div>').join("") + "</details>").join("") +
+      ((R.tips || []).length ? "<h2>Maslahatlar</h2>" + '<div class="card"><ul class="rules">' + R.tips.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></div>" : ""));
   }
 
   function viewBooks() {
     html(
       "<h1>📚 Kitoblaringiz va manbalar</h1>" +
+      '<a class="card link" href="#/research"><div class="row"><div style="font-size:1.6rem">🔬</div><div class="grow"><h3>Ilmiy manbalar</h3><div class="muted">Scopus ELT jurnallari, tadqiqot yo\'nalishlari, o\'rganish strategiyalari va IMRAD maqola tuzilishi</div></div></div></a>' +
       '<p class="muted">Ilova kitoblaringiz bilan birga ishlatish uchun tuzilgan. Kitob matnlari ko\'chirilmagan: darslar mavzu tartibi bo\'yicha moslangan, mashqlar yangidan yozilgan.</p>' +
       "<h2>Kitoblar: qachon va qanday</h2>" +
       RESOURCES.books.map((b) => '<div class="card"><h3>' + esc(b.name) + '</h3><div class="muted">' + esc(b.use) + "</div></div>").join("") +
@@ -798,7 +1100,7 @@
       const n = words(ta.value).length;
       if (n < 20) { toast("Saqlash uchun matn juda qisqa."); return; }
       S.essays = (S.essays || []).concat([{ key, title: question ? question.slice(0, 60) : (fq && fq.value.slice(0, 60)) || title, date: today(), words: n, text: ta.value }]).slice(-30);
-      S.drafts[key] = ""; delete S.drafts[key + ":left"]; save(); markActive();
+      S.drafts[key] = ""; delete S.drafts[key + ":left"]; save(); markActive(); addXP(n >= 150 ? 25 : 10);
       toast("Saqlandi: Writing → Mening yozganlarim");
     };
     document.getElementById("check").onclick = () => {
@@ -886,7 +1188,8 @@
     const [sec, id] = parts;
     document.querySelectorAll(".tabbar a").forEach((a) => {
       const tab = a.dataset.tab;
-      a.classList.toggle("active", tab === (sec === "quiz" ? "grammar" : sec === "write" ? "writing" : sec || "home"));
+      const TAB = { quiz: "grammar", write: "writing", review: "vocab", idiom: "vocab", idiomcards: "vocab", idiomquiz: "vocab", colloc: "vocab", cquiz: "vocab", research: "books", progress: "home", mistakes: "home" };
+      a.classList.toggle("active", tab === (TAB[sec] || sec || "home"));
     });
     const isLv = LEVELS.includes(id);
     if (sec === "grammar") id && !isLv ? viewLesson(id) : viewGrammarList(id);
@@ -903,7 +1206,18 @@
     else if (sec === "write") viewWrite(id || "free");
     else if (sec === "speaking" && id === "guide") viewGuide(parts[2]);
     else if (sec === "speaking") id && !isLv ? viewTopic(id) : viewSpeakingList(id);
+    else if (sec === "vocab" && id === "idioms") viewIdiomList();
+    else if (sec === "vocab" && id === "colloc") viewCollocList();
     else if (sec === "vocab") id && !isLv ? viewCards(id) : viewVocabList(id);
+    else if (sec === "review") viewReview();
+    else if (sec === "idiom") viewIdiomGroup(id);
+    else if (sec === "idiomcards") viewIdiomCards(id);
+    else if (sec === "idiomquiz") viewIdiomQuiz(id);
+    else if (sec === "colloc") viewColloc(id);
+    else if (sec === "cquiz") viewCollocQuiz(id);
+    else if (sec === "progress") viewProgress();
+    else if (sec === "mistakes") viewMistakes();
+    else if (sec === "research") viewResearch();
     else if (sec === "books") viewBooks();
     else viewHome();
   }

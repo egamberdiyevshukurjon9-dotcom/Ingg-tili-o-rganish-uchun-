@@ -31,6 +31,15 @@ Dars matnlari va mashqlar original: kitoblardan ko'chirilmagan, faqat mavzular k
 - **Yozish mashqi:** 40/20 daqiqalik taymer, so'z hisobi, avtomatik tekshiruv (paragraflar, bog'lovchilar, takrorlar, norasmiy so'zlar, overview/xulosa) va band 7 checklist; yozganlar saqlanadi.
 - **🎤 Speaking:** 7 ta band 7 strategiyasi (kuchsiz va kuchli javob solishtirmasi), 16 ta yangi Part 2/3 mavzu, Part 2 imtihon rejimi (1 daqiqa tayyorgarlik + 2 daqiqa), javob tahlili (tezlik, so'z xilma-xilligi, bog'lovchilar).
 
+## C2 lug'at, idiomalar va ilmiy yondashuv
+
+- **🗂️ C2 lug'at:** BTU SFL C2 va MindDory C2 ro'yxatlaridan tanlangan so'zlar: o'zbekcha ma'no, yangi misol, kollokatsiyalar.
+- **🔁 Takrorlash (spaced repetition):** har bilgan so'z va idioma 1, 3, 7, 16, 35 kundan keyin qayta so'raladi.
+- **💬 Idiomalar:** English Idioms in Use Advanced mavzulari tartibida, tushuntirish va misollar yangidan yozilgan; kartochka va test.
+- **🧩 Kollokatsiyalar:** korpus asosidagi birikmalar (make/do, raise awareness, highly likely...) va testlar.
+- **📈 Natijalarim:** XP, kunlik maqsad, unvonlar, nishonlar, 14 kunlik grafik, xatolar daftari, haftalik o'rganish strategiyalari.
+- **🔬 Ilmiy manbalar:** Scopus ELT jurnallari, tadqiqot yo'nalishlari (AI, korpus, gamifikatsiya, LLS), IMRAD maqola tuzilishi.
+
 ## Android ilova (APK)
 
 `android/` papkasida WebView asosidagi ilova bor: sayt fayllari APK ichida (internetsiz ochiladi),
