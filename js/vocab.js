@@ -125,7 +125,9 @@ window.RESOURCES = {
     { name: "Smart Topics in English", use: "Speaking bo'limidagi mavzular shu uslubda. Har kuni kitobdan 1 mavzu tanlab, 1–2 daqiqa gapiring." },
     { name: "Basic IELTS (Listening, Reading, Writing, Speaking)", use: "Grammatika 15–20-darslarga yetganda boshlang." },
     { name: "IELTS Vocabulary", use: "Lug'at bo'limidagi beginner so'zlardan keyin." },
-    { name: "Cambridge IELTS 19, Multilevel Master, Longman Essay Activator, IELTS Liz", use: "Keyingi bosqich (B1+). Hozircha saqlab qo'ying." }
+    { name: "Ideas for IELTS Essay Topics (IELTS Liz)", use: "Writing → G'oyalar banki bilan birga: har kuni bitta mavzu, fikrlarni o'z so'zlaringiz bilan qayta yozing, keyin shu mavzuda esse yozing." },
+    { name: "Longman Essay Activator", use: "Writing → Esse iboralari bo'limiga mos: har haftada bitta funksiya (qarama-qarshilik, sabab-oqibat...) dan 3–4 ta ibora tanlab, esselaringizda ishlating." },
+    { name: "Cambridge IELTS 19, Multilevel Master", use: "Haqiqiy test sharoitida: Writing savollarini ilovadagi Yozish mashqi (taymer bilan) da ishlang." }
   ],
   online: [
     { name: "British Council LearnEnglish – Grammar", url: "https://learnenglish.britishcouncil.org/grammar", use: "A1–B1 grammatika tushuntirishlari va onlayn mashqlar." },

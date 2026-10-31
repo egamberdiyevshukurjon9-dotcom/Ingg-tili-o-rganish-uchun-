@@ -3,7 +3,7 @@
 
   // ---------- Saqlash (localStorage) ----------
   const KEY = "english-start-v1";
-  const blank = () => ({ quiz: {}, read: {}, said: 0, topics: {}, words: {}, days: [], voice: "", rate: 0.9 });
+  const blank = () => ({ quiz: {}, read: {}, said: 0, topics: {}, words: {}, days: [], voice: "", rate: 0.9, drafts: {}, essays: [], checks: {} });
   let S = blank();
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { /* bo'sh holat */ }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* xotira yopiq */ } };
@@ -236,6 +236,7 @@
       '<a class="card link" href="#/grammar/' + nl.id + '"><div class="row"><div class="num">1</div><div class="grow"><h3>📘 ' + esc(nl.title) + ' <span class="badge">' + nl.level + '</span></h3><div class="muted">Darsni o\'qing, misollarni tinglang, testdan 70%+ oling. 📖 ' + esc(nl.murphy) + "</div></div></div></a>" +
       '<a class="card link" href="#/speaking/' + topic.id + '"><div class="row"><div class="num">2</div><div class="grow"><h3>🎤 ' + esc(topic.title) + ' <span class="badge">' + topic.level + '</span></h3><div class="muted">Savollarni tinglab, har biriga ' + (lvIdx >= 3 ? "1–2 daqiqa" : "20–30 soniya") + " javob bering.</div></div></div></a>" +
       '<a class="card link" href="#/vocab/' + vt.id + '"><div class="row"><div class="num">3</div><div class="grow"><h3>🗂️ ' + esc(vt.title) + ' <span class="badge">' + vt.level + '</span></h3><div class="muted">Kartochkalar: so\'zni tinglang, ma\'nosini eslang, ovoz chiqarib ayting.</div></div></div></a>' +
+      (lvIdx >= 2 && window.WRITING && WRITING.task2 ? '<a class="card link" href="#/writing/t2-' + WRITING.task2[(S.essays || []).length % WRITING.task2.length].id + '"><div class="row"><div class="num">4</div><div class="grow"><h3>✍️ IELTS Writing <span class="badge">Band 7</span></h3><div class="muted">Bugun: ' + esc(WRITING.task2[(S.essays || []).length % WRITING.task2.length].title) + ". Rejani o'qing, 40 daqiqada yozing, tekshiring.</div></div></div></a>" : "") +
       "<h2>Tez o'rganish sirlari</h2>" +
       '<div class="card"><ul class="rules">' +
         "<li><b>Har kuni oz-ozdan:</b> 30–60 daqiqa har kuni haftada bir marta 5 soatdan ancha samarali.</li>" +
@@ -410,6 +411,7 @@
       "<h1>🎤 Speaking</h1>" +
       (SR ? "" : noMic) +
       '<p class="muted">Savolni tinglang, keyin mikrofonga javob bering. Javobingiz matnga aylanadi, so\'zlar soni va vaqt ko\'rsatiladi. ' + lv + " maqsadi: <b>" + tip + "</b>.</p>" +
+      (window.SPEAKING_GUIDE ? '<a class="card link" href="#/speaking/guide"><h3>🎯 IELTS 7 uchun strategiyalar</h3><div class="muted">Part 1, 2, 3 ni qanday kengaytirish, 4 baholash mezoni, kuchsiz va kuchli javob solishtirmasi.</div></a>' : "") +
       levelTabs("speaking", lv) +
       '<div class="list">' +
       (list.length ? list.map((t) =>
@@ -425,35 +427,72 @@
     );
   }
 
+  // ---------- IELTS tahlil yordamchilari ----------
+  const LINKERS = ["however", "although", "whereas", "while", "moreover", "furthermore", "in addition", "additionally", "therefore", "consequently", "as a result", "for instance", "for example", "such as", "on the other hand", "in contrast", "nevertheless", "despite", "in spite of", "because", "since", "due to", "so that", "in my opinion", "in my view", "i believe", "overall", "in conclusion", "to conclude", "firstly", "secondly", "finally", "what is more", "not only", "that said", "admittedly", "even though", "unless", "provided that", "in other words", "this means that", "which means", "as well as", "similarly", "likewise", "by contrast", "meanwhile", "subsequently", "to sum up", "on balance"];
+  const STOP = new Set("the a an and or but of to in on at for with by from is are was were be been being it its this that these those i you he she we they my your his her our their me him them us as so if not no do does did have has had can could will would should may might must there here than then very also just more most much many some any all about into over after before up out what which who whom whose when where why how one two".split(" "));
+  function linkersIn(text) { const t = " " + norm(text) + " "; return LINKERS.filter((l) => t.includes(" " + l + " ")); }
+  function repeatedWords(text, limit) {
+    const c = {};
+    words(text).forEach((w) => { if (w.length > 3 && !STOP.has(w)) c[w] = (c[w] || 0) + 1; });
+    return Object.entries(c).filter(([, n]) => n >= limit).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }
+  function speechReport(txt, sec, level) {
+    const w = words(txt);
+    const tips = [];
+    const minW = { A1: 10, A2: 15, B1: 25, B2: 40, C1: 50, C2: 60 }[level] || 15;
+    if (w.length < minW) tips.push(level + " uchun javob qisqa (" + minW + "+ so'z kerak). Sabab va misol qo'shing.");
+    const links = linkersIn(txt);
+    if (!/\b(because|so|but|and)\b/.test(norm(txt)) && !links.length) tips.push("Bog'lovchi ishlating: <b>because, so, but, however</b>.");
+    if (!/\b(for example|for instance|such as)\b/.test(norm(txt)) && w.length >= 15) tips.push("Misol keltiring: <b>For example, ...</b>");
+    const fill = (norm(txt).match(/\b(um+|uh+|er+|erm)\b/g) || []).length;
+    if (fill > 3) tips.push("“um/uh” ko'p (" + fill + "). O'rniga: <b>Well, let me think...</b>");
+    const rep = repeatedWords(txt, 4);
+    if (rep.length) tips.push("Ko'p takrorlangan: <b>" + rep.map(([x, n]) => x + " ×" + n).join(", ") + "</b>. Sinonim toping.");
+    const wpm = sec > 5 ? Math.round(w.length / (sec / 60)) : 0;
+    const variety = w.length ? Math.round(new Set(w).size / w.length * 100) : 0;
+    const stats = w.length + " so'z · " + sec + " soniya" + (wpm ? " · " + wpm + " so'z/daqiqa" : "") + " · so'z xilma-xilligi " + variety + "%" +
+      (links.length ? " · bog'lovchilar: " + esc(links.join(", ")) : "");
+    if (wpm && w.length > 30 && wpm < 90) tips.push("Juda sekin (" + wpm + " so'z/daqiqa). Band 7 uchun taxminan 110–150 tabiiy tezlik.");
+    return '“' + esc(txt) + '”<div class="muted" style="margin-top:6px">' + stats + "</div>" +
+      '<div style="margin-top:6px">' + (tips.length ? tips.map((x) => "• " + x).join("<br>") : "Yaxshi javob! 👍") + "</div>";
+  }
+  const fmt = (sec) => Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+
   function viewTopic(id) {
     const t = SPEAKING.find((x) => x.id === id);
     if (!t) return viewSpeakingList();
+    const isP2 = t.part === "Part 2";
     html(
       '<a class="back" href="#/speaking/' + t.level + '">← ' + t.level + " mavzulari</a>" +
       "<h1>" + esc(t.title) + ' <span class="badge">' + t.level + "</span></h1>" +
-      (t.part ? '<p class="muted">IELTS Speaking ' + esc(t.part) + (t.part === "Part 2" ? ": 1 daqiqa tayyorlaning, 1–2 daqiqa to'xtovsiz gapiring." : t.part === "Part 3" ? ": fikringizni sabab va misol bilan asoslang." : "") + "</p>" : "") +
+      (t.part ? '<p class="muted">IELTS Speaking ' + esc(t.part) + (isP2 ? ": 1 daqiqa tayyorlaning, 1–2 daqiqa to'xtovsiz gapiring." : t.part === "Part 3" ? ": fikringizni sabab, misol va oqibat bilan asoslang." : ": 2–4 gap: javob + sabab + misol.") + ' <a href="#/speaking/guide">Band 7 strategiyalari →</a></p>' : "") +
       (SR ? "" : noMic) +
+      (isP2 && SR ? '<div class="card"><h3>⏱ Imtihon rejimi</h3><p class="muted">Haqiqiy imtihondagidek: 1 daqiqa tayyorgarlik (qisqa yozuvlar), keyin 2 daqiqa gapirasiz. 2:00 da yozish o\'zi to\'xtaydi.</p>' +
+        '<div class="btns"><button class="btn" id="exam">▶️ Boshlash</button> <span class="timer" id="exam-tm"></span></div>' +
+        '<textarea id="exam-notes" class="notes" rows="4" placeholder="Tayyorgarlik yozuvlari: kalit so\'zlar, reja..." hidden></textarea>' +
+        '<div class="transcript" id="exam-out"></div></div>' : "") +
       '<div class="card"><h3>Foydali iboralar</h3><ul class="rules">' + t.phrases.map((p) => "<li>" + esc(p) + "</li>").join("") + "</ul></div>" +
       t.questions.map((q, k) =>
-        '<div class="card"><div class="row"><div class="grow say-target">' + (k + 1) + ". " + esc(q) + "</div>" +
+        '<div class="card"><div class="row"><div class="grow say-target">' + (isP2 && k ? "• " : (k + 1) + ". ") + esc(q) + "</div>" +
         '<button class="icon-btn" data-speak="' + esc(q) + '" aria-label="Savolni tinglash">🔊</button></div>' +
-        (SR ? '<div class="btns"><button class="btn rec small" data-answer="' + k + '">🎤 Javob berish</button> <span class="timer" id="tm-' + k + '"></span></div>' : "") +
+        (SR && !(isP2 && k) ? '<div class="btns"><button class="btn rec small" data-answer="' + k + '">🎤 Javob berish</button> <span class="timer" id="tm-' + k + '"></span></div>' : "") +
         '<div class="transcript" id="ans-' + k + '"></div></div>').join("") +
-      '<details class="card"><summary>Namuna javob (avval o\'zingiz javob bering)</summary><p style="margin-top:10px">' + esc(t.sample) + "</p>" +
+      '<details class="card"><summary>Namuna javob (avval o\'zingiz javob bering)</summary><p style="margin-top:10px;white-space:pre-line">' + esc(t.sample) + "</p>" +
       '<button class="btn ghost small" data-speak="' + esc(t.sample) + '">🔊 Tinglash</button></details>' +
       '<div class="btns"><button class="btn" id="done">✓ Mavzu bajarildi</button></div>'
     );
     document.getElementById("done").onclick = () => { S.topics[id] = true; save(); markActive(); location.hash = "#/speaking/" + t.level; };
 
     let rec = null, timer = null;
+    const stopAll = () => { if (rec) rec.stop(); };
     app.querySelectorAll("[data-answer]").forEach((b) => (b.onclick = () => {
       const k = b.dataset.answer;
       const out = document.getElementById("ans-" + k);
       const tm = document.getElementById("tm-" + k);
-      if (rec) { rec.stop(); return; }
+      if (rec) { stopAll(); return; }
       let sec = 0;
       tm.textContent = "0:00";
-      timer = setInterval(() => { sec++; tm.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); }, 1000);
+      timer = setInterval(() => { sec++; tm.textContent = fmt(sec); }, 1000);
       b.textContent = "⏹ To'xtatish";
       out.innerHTML = '<span class="muted">Gapiring...</span>';
       rec = listen({
@@ -465,17 +504,75 @@
           b.textContent = "🎤 Qayta javob berish";
           if (!txt) { out.innerHTML = '<span class="muted">Ovoz eshitilmadi.</span>'; return; }
           S.said++; save(); markActive();
-          const w = words(txt);
-          const tips = [];
-          const minW = { A1: 10, A2: 15, B1: 25, B2: 40, C1: 50, C2: 60 }[t.level] || 15;
-          if (w.length < minW) tips.push(t.level + " uchun javob qisqa (" + minW + "+ so'z kerak). Sabab va misol qo'shing.");
-          if (!/\b(because|so|but|and)\b/.test(norm(txt))) tips.push("Bog'lovchi ishlating: <b>and, but, because, so</b>.");
-          if (!/\bfor example\b/.test(norm(txt)) && w.length >= 15) tips.push("Misol keltiring: <b>For example, ...</b>");
-          out.innerHTML = "“" + esc(txt) + "”<div class=\"muted\" style=\"margin-top:6px\">" + w.length + " so'z, " + sec + " soniya. " +
-            (tips.length ? tips.join(" ") : "Yaxshi javob! 👍") + "</div>";
+          out.innerHTML = speechReport(txt, sec, t.level);
         }
       });
     }));
+
+    const ex = document.getElementById("exam");
+    if (ex) ex.onclick = () => {
+      const tm = document.getElementById("exam-tm"), notes = document.getElementById("exam-notes"), out = document.getElementById("exam-out");
+      if (rec) { stopAll(); return; }
+      if (timer) { clearInterval(timer); timer = null; ex.textContent = "▶️ Boshlash"; tm.textContent = ""; return; }
+      speak(t.questions[0]);
+      notes.hidden = false; notes.value = ""; notes.focus();
+      out.innerHTML = "";
+      let left = 60;
+      ex.textContent = "⏭ Tayyorman, gapirishni boshlash";
+      tm.textContent = "Tayyorgarlik " + fmt(left);
+      const startTalk = () => {
+        clearInterval(timer); timer = null;
+        let sec = 0;
+        ex.textContent = "⏹ To'xtatish";
+        tm.textContent = "Gapiring 0:00 / 2:00";
+        out.innerHTML = '<span class="muted">Gapiring...</span>';
+        timer = setInterval(() => { sec++; tm.textContent = "Gapiring " + fmt(sec) + " / 2:00"; if (sec >= 120) stopAll(); }, 1000);
+        rec = listen({
+          continuous: true,
+          onText: (txt) => (out.textContent = txt),
+          onEnd: (txt) => {
+            clearInterval(timer); timer = null; rec = null;
+            ex.textContent = "🔁 Yana boshlash";
+            tm.textContent = fmt(sec);
+            if (!txt) { out.innerHTML = '<span class="muted">Ovoz eshitilmadi.</span>'; return; }
+            S.said++; save(); markActive();
+            out.innerHTML = (sec < 90 ? '<div class="feedback bad">Atigi ' + fmt(sec) + " gapirdingiz. Band 7 uchun 1:45–2:00 gapiring: har bir bandni kengaytiring, misol va his-tuyg'u qo'shing.</div>" : '<div class="feedback ok">Vaqt yaxshi: ' + fmt(sec) + "</div>") + speechReport(txt, sec, t.level);
+          }
+        });
+      };
+      timer = setInterval(() => { left--; tm.textContent = "Tayyorgarlik " + fmt(left); if (left <= 0) startTalk(); }, 1000);
+      ex.onclick = () => {
+        if (rec) { stopAll(); return; }
+        if (timer && left > 0 && !rec && ex.textContent.startsWith("⏭")) { startTalk(); return; }
+        viewTopic(id);
+      };
+    };
+  }
+
+  function viewGuide(gid) {
+    const G = window.SPEAKING_GUIDE;
+    if (!G) return viewSpeakingList();
+    const g = G.strategies.find((x) => x.id === gid);
+    if (!g) {
+      html('<a class="back" href="#/speaking">← Speaking</a><h1>🎯 Speaking: Band 7 strategiyalari</h1>' +
+        '<p class="muted">IELTS Speaking 4 mezon bo\'yicha baholanadi. Har biri balning 25%.</p>' +
+        G.criteria.map((c) => '<details class="card"><summary>' + esc(c.uz) + " (" + esc(c.name) + ")</summary>" +
+          '<p style="margin-top:8px"><b>Band 6:</b> ' + esc(c.band6) + "</p><p><b>Band 7:</b> " + esc(c.band7) + '</p><ul class="rules">' + c.tips.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></details>").join("") +
+        "<h2>Strategiyalar</h2><div class=\"list\">" +
+        G.strategies.map((x, i) => '<a class="card link" href="#/speaking/guide/' + x.id + '"><div class="row"><div class="num">' + (i + 1) + '</div><div class="grow"><h3>' + esc(x.title) + '</h3><div class="muted">' + esc(x.part) + "</div></div></div></a>").join("") + "</div>");
+      return;
+    }
+    bindDrills(g.phrases.map((p) => p[0]), "sg-" + gid + "-");
+    html('<a class="back" href="#/speaking/guide">← Strategiyalar</a><h1>' + esc(g.title) + ' <span class="badge">' + esc(g.part) + "</span></h1>" +
+      '<div class="card"><p>' + g.intro + '</p><ol class="rules">' + g.steps.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ol></div>" +
+      "<h2>Iboralar</h2>" + g.phrases.map((p, k) =>
+        '<div class="card"><div class="row"><div class="grow"><div class="say-target">' + esc(p[0]) + '</div><div class="muted">' + esc(p[1]) + '</div><div class="transcript muted" id="tr-sg-' + gid + "-" + k + '"></div></div>' +
+        '<button class="icon-btn" data-speak="' + esc(p[0]) + '" aria-label="Tinglash">🔊</button>' +
+        (SR ? '<button class="icon-btn" data-repeat="sg-' + gid + "-" + k + '" aria-label="Aytish">🎤</button>' : "") + "</div></div>").join("") +
+      "<h2>Solishtiring</h2><div class=\"card\"><p><b>Savol:</b> " + esc(g.example.q) + "</p>" +
+      '<div class="feedback bad"><b>Band 5–6:</b> ' + esc(g.example.weak) + ' <button class="btn ghost small" data-speak="' + esc(g.example.weak) + '">🔊</button></div>' +
+      '<div class="feedback ok"><b>Band 7–8:</b> ' + esc(g.example.strong) + ' <button class="btn ghost small" data-speak="' + esc(g.example.strong) + '">🔊</button></div>' +
+      '<p style="margin-top:10px">' + esc(g.example.why) + "</p></div>");
   }
 
   function viewVocabList(lv) {
@@ -556,6 +653,190 @@
     );
   }
 
+  // ---------- Writing (IELTS) ----------
+  const W = () => window.WRITING || {};
+  function wItem(key) {
+    const [kind, id] = [key.slice(0, 2), key.slice(3)];
+    if (kind === "t2") return (W().task2 || []).find((x) => x.id === id);
+    if (kind === "t1") return (W().task1 || []).find((x) => x.id === id);
+    return null;
+  }
+  function paras(text) { return esc(text).split(/\n\s*\n/).map((p) => "<p>" + p + "</p>").join(""); }
+
+  function viewWriting() {
+    const w = W();
+    const essays = S.essays || [];
+    html(
+      "<h1>✍️ IELTS Writing</h1>" +
+      '<p class="muted">Band 7 uchun: savol turini taniy olish, aniq reja, har paragrafda bitta fikr + izoh + misol, akademik so\'zlar va xatosiz murakkab gaplar. Har kuni bitta Task 2 yoki Task 1 yozing.</p>' +
+      '<a class="card link" href="#/write/free"><h3>✍️ Yozish mashqi</h3><div class="muted">Taymer, so\'z hisobi, avtomatik tekshiruv va band 7 checklist. Qoralama saqlanib qoladi.</div></a>' +
+      "<h2>Task 2: esse turlari</h2><div class=\"list\">" +
+      (w.task2 || []).map((t, i) => '<a class="card link" href="#/writing/t2-' + t.id + '"><div class="row"><div class="num">' + (i + 1) + '</div><div class="grow"><h3>' + esc(t.title) + '</h3><div class="muted">' + esc(t.type) + "</div></div></div></a>").join("") + "</div>" +
+      "<h2>Task 1 (Academic)</h2><div class=\"list\">" +
+      (w.task1 || []).map((t, i) => '<a class="card link" href="#/writing/t1-' + t.id + '"><div class="row"><div class="num">' + (i + 1) + '</div><div class="grow"><h3>' + esc(t.title) + '</h3><div class="muted">' + esc(t.type) + "</div></div></div></a>").join("") + "</div>" +
+      "<h2>Tayyorgarlik</h2><div class=\"list\">" +
+      '<a class="card link" href="#/writing/topics"><h3>💡 G\'oyalar banki</h3><div class="muted">' + (w.topics || []).length + " mavzu: tarafdor/qarshi fikrlar, yechimlar, mavzu so'zlari</div></a>" +
+      '<a class="card link" href="#/writing/phrases"><h3>🔗 Esse iboralari</h3><div class="muted">Fikr bildirish, qarama-qarshilik, sabab-oqibat, xulosa...</div></a>' +
+      '<a class="card link" href="#/writing/criteria"><h3>📏 Baholash mezonlari</h3><div class="muted">Band 6 va band 7 farqi, 4 mezon</div></a>' +
+      "</div>" +
+      (essays.length ? "<h2>Mening yozganlarim</h2>" + essays.slice().reverse().slice(0, 10).map((e, i) =>
+        '<details class="card"><summary>' + esc(e.date) + " · " + esc(e.title) + " · " + e.words + " so'z</summary><div style=\"margin-top:8px\">" + paras(e.text) + "</div></details>").join("") : "")
+    );
+  }
+
+  function viewWritingItem(key) {
+    const t = wItem(key);
+    if (!t) return viewWriting();
+    const isT1 = key.startsWith("t1");
+    html(
+      '<a class="back" href="#/writing">← Writing</a>' +
+      "<h1>" + esc(t.title) + '</h1><p class="muted">' + esc(t.type) + "</p>" +
+      (t.recognise ? '<div class="card"><h3>Qanday taniladi</h3><p>' + esc(t.recognise) + "</p></div>" : "") +
+      (t.overview ? '<div class="card"><h3>Overview (umumiy xulosa)</h3><p>' + esc(t.overview) + "</p></div>" : "") +
+      '<div class="card"><h3>Reja</h3><div class="table-wrap"><table><tbody>' + t.plan.map((r) => "<tr><td><b>" + esc(r[0]) + "</b></td><td>" + esc(r[1]) + "</td></tr>").join("") + "</tbody></table></div></div>" +
+      (t.tips ? '<div class="card"><h3>Band 7 maslahatlari</h3><ul class="rules">' + t.tips.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></div>" : "") +
+      (t.language ? '<div class="card"><h3>Kerakli iboralar</h3>' + t.language.map((p) => '<div class="example"><div class="grow"><div class="en">' + esc(p[0]) + '</div><div class="uz">' + esc(p[1]) + '</div></div><button class="icon-btn" data-speak="' + esc(p[0]) + '">🔊</button></div>').join("") + "</div>" : "") +
+      '<div class="card"><h3>Savol</h3><p><b>' + esc(t.question) + "</b></p>" +
+      (t.data ? '<div class="table-wrap"><table><thead><tr>' + t.data.head.map((h) => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>" + t.data.rows.map((r) => "<tr>" + r.map((c) => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>" : "") +
+      '<div class="btns"><a class="btn" href="#/write/' + key + '">✍️ Shu savolga yozish (' + (isT1 ? "20" : "40") + " daqiqa)</a></div></div>" +
+      '<details class="card"><summary>Band 7.5+ namuna (avval o\'zingiz yozing)</summary><div style="margin-top:10px">' + paras(t.model) + "</div>" +
+      '<p class="muted">' + words(t.model).length + " so'z</p>" +
+      (t.notes ? '<h3>Nega bu band 7+?</h3><ul class="rules">' + t.notes.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "") + "</details>"
+    );
+  }
+
+  function viewTopics(id) {
+    const list = W().topics || [];
+    const t = list.find((x) => x.id === id);
+    if (!t) {
+      html('<a class="back" href="#/writing">← Writing</a><h1>💡 G\'oyalar banki</h1><p class="muted">Imtihonda eng ko\'p qiyinchilik “nima yozishni bilmaslik”. Har mavzu uchun tayyor fikrlar va so\'zlarni o\'qing, keyin o\'z so\'zlaringiz bilan ishlating.</p><div class="list">' +
+        list.map((x) => '<a class="card link" href="#/writing/topic-' + x.id + '"><h3>' + esc(x.title) + '</h3><div class="muted">' + esc(x.en) + " · " + x.points.length + " fikr · " + x.vocab.length + " so'z</div></a>").join("") + "</div>");
+      return;
+    }
+    const side = { for: "✅ Tarafdor / afzallik", against: "⚠️ Qarshi / kamchilik", solution: "🛠 Yechim" };
+    html('<a class="back" href="#/writing/topics">← Mavzular</a><h1>' + esc(t.title) + '</h1><p class="muted">' + esc(t.en) + "</p>" +
+      "<h2>Namuna savollar</h2>" + t.questions.map((q, k) => {
+        return '<div class="card"><p>' + esc(q) + '</p><a class="btn ghost small" href="#/write/q-' + t.id + "-" + k + '">✍️ Yozish</a></div>';
+      }).join("") +
+      Object.keys(side).map((sd) => {
+        const pts = t.points.filter((p) => p.side === sd);
+        return pts.length ? "<h2>" + side[sd] + "</h2>" + pts.map((p) => '<div class="card"><div class="row"><div class="grow"><div>' + esc(p.en) + '</div><div class="muted">' + esc(p.uz) + '</div></div><button class="icon-btn" data-speak="' + esc(p.en) + '">🔊</button></div></div>').join("") : "";
+      }).join("") +
+      "<h2>Mavzu so'zlari</h2><div class=\"card\">" + t.vocab.map((v) => '<div class="example"><div class="grow"><div class="en">' + esc(v[0]) + '</div><div class="uz">' + esc(v[1]) + '</div></div><button class="icon-btn" data-speak="' + esc(v[0]) + '">🔊</button></div>').join("") + "</div>");
+  }
+
+  function viewPhrases() {
+    html('<a class="back" href="#/writing">← Writing</a><h1>🔗 Esse iboralari</h1><p class="muted">Bir xil iborani takrorlamang: har guruhdan 2–3 tasini o\'zlashtiring va mazmunga mos ishlating. Yodlangan “shablon” gaplar band 7 ga xalaqit beradi.</p>' +
+      (W().phrases || []).map((g) => '<details class="card"><summary>' + esc(g.group) + " (" + g.items.length + ")</summary>" +
+        g.items.map((p) => '<div class="example"><div class="grow"><div class="en">' + esc(p[0]) + '</div><div class="uz">' + esc(p[1]) + '</div></div><button class="icon-btn" data-speak="' + esc(p[0]) + '">🔊</button></div>').join("") + "</details>").join(""));
+  }
+
+  function viewCriteria() {
+    html('<a class="back" href="#/writing">← Writing</a><h1>📏 Writing baholash mezonlari</h1><p class="muted">Har bir mezon balning 25%. Task 2 bali Task 1 dan ikki baravar og\'ir.</p>' +
+      (W().criteria || []).map((c) => '<div class="card"><h3>' + esc(c.uz) + ' <span class="badge">' + esc(c.name) + "</span></h3>" +
+        "<p><b>Band 6:</b> " + esc(c.band6) + "</p><p><b>Band 7:</b> " + esc(c.band7) + '</p><ul class="rules">' + c.tips.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></div>").join(""));
+  }
+
+  const CHECKLIST = {
+    t2: ["Savolning hamma qismiga javob berdim", "Pozitsiyam kirish va xulosada aniq va bir xil", "Har bir body paragrafda bitta asosiy fikr + izoh + misol", "Paragraflar mantiqan bog'langan, bog'lovchilar xilma-xil", "Mavzuga oid aniq so'zlar ishlatdim, takrorlamadim", "Murakkab gaplar bor (although, which, if...) va ular xatosiz", "Imlo va artikllarni (a/an/the) tekshirdim", "250+ so'z, 40 daqiqada"],
+    t1: ["Savolni o'z so'zlarim bilan qayta yozdim", "Overview bor: eng muhim 2 ta tendensiya/farq", "Muhim raqamlarni to'g'ri keltirdim", "Ma'lumotlarni solishtirdim (compared to, while...)", "Shaxsiy fikr yozmadim", "Zamonlar to'g'ri (o'tgan yil → Past Simple)", "150+ so'z, 20 daqiqada"]
+  };
+
+  function viewWrite(key) {
+    const isQ = key.startsWith("q-");
+    let title, question, kind;
+    if (key === "free") { kind = "t2"; title = "Erkin mashq"; question = ""; }
+    else if (isQ) {
+      const [, tid, k] = key.match(/^q-(.+)-(\d+)$/) || [];
+      const tp = (W().topics || []).find((x) => x.id === tid);
+      if (!tp) return viewWriting();
+      kind = "t2"; title = tp.title; question = tp.questions[Number(k)];
+    } else {
+      const t = wItem(key);
+      if (!t) return viewWriting();
+      kind = key.slice(0, 2); title = t.title; question = t.question;
+    }
+    const minWords = kind === "t1" ? 150 : 250;
+    const minutes = kind === "t1" ? 20 : 40;
+    const draft = S.drafts[key] || "";
+    const checks = S.checks[key] || {};
+    html(
+      '<a class="back" href="' + (key === "free" || isQ ? "#/writing" : "#/writing/" + key) + '">← Orqaga</a>' +
+      "<h1>✍️ " + esc(title) + "</h1>" +
+      (question ? '<div class="card"><b>' + esc(question) + '</b><div class="muted">Kamida ' + minWords + " so'z · " + minutes + " daqiqa</div></div>" :
+        '<div class="card"><label class="muted" for="fq">Savolni kiriting (Cambridge IELTS 19 yoki IELTS Liz kitobidan)</label><textarea id="fq" class="notes" rows="2"></textarea>' +
+        '<div class="btns"><label class="muted"><input type="radio" name="kind" value="t2" checked> Task 2</label><label class="muted"><input type="radio" name="kind" value="t1"> Task 1</label></div></div>') +
+      '<div class="card wbar"><span class="timer" id="wt">' + minutes + ':00</span><button class="btn small ghost" id="wstart">▶️ Taymer</button><span class="grow"></span><b id="wc">0</b>&nbsp;so\'z</div>' +
+      '<textarea id="essay" class="essay" rows="16" spellcheck="false" placeholder="Shu yerga yozing. Paragraflar orasida bo\'sh qator qoldiring.">' + esc(draft) + "</textarea>" +
+      '<div class="btns"><button class="btn" id="check">🔍 Tekshirish</button><button class="btn ghost" id="savee">💾 Saqlash</button></div>' +
+      '<div id="report"></div>' +
+      '<h2>Band 7 checklist</h2><div class="card" id="cl">' + CHECKLIST[kind].map((c, i) =>
+        '<label class="check"><input type="checkbox" data-i="' + i + '"' + (checks[i] ? " checked" : "") + "> " + esc(c) + "</label>").join("") + "</div>"
+    );
+    const ta = document.getElementById("essay"), wc = document.getElementById("wc");
+    const fq = document.getElementById("fq");
+    if (fq) { fq.value = S.drafts[key + ":q"] || ""; fq.oninput = () => { S.drafts[key + ":q"] = fq.value; save(); }; }
+    const curKind = () => { const r = app.querySelector('input[name="kind"]:checked'); return r ? r.value : kind; };
+    const count = () => { const n = words(ta.value).length; wc.textContent = n; wc.style.color = n >= (curKind() === "t1" ? 150 : 250) ? "var(--ok)" : ""; };
+    count();
+    let tmr = null, saveT = null;
+    ta.oninput = () => { count(); clearTimeout(saveT); saveT = setTimeout(() => { S.drafts[key] = ta.value; save(); }, 600); };
+    document.getElementById("wstart").onclick = (e) => {
+      if (tmr) { clearInterval(tmr); tmr = null; e.target.textContent = "▶️ Davom"; return; }
+      let left = (S.drafts[key + ":left"]) || minutes * 60;
+      e.target.textContent = "⏸ Pauza";
+      tmr = setInterval(() => {
+        if (!document.body.contains(ta)) { clearInterval(tmr); return; }
+        left--; S.drafts[key + ":left"] = left;
+        const el = document.getElementById("wt");
+        el.textContent = (left < 0 ? "-" : "") + fmt(Math.abs(left));
+        if (left === 0) toast("Vaqt tugadi! Imtihonda shu yerda to'xtaysiz.");
+      }, 1000);
+    };
+    app.querySelectorAll("#cl input").forEach((c) => (c.onchange = () => { S.checks[key] = S.checks[key] || {}; S.checks[key][c.dataset.i] = c.checked; save(); }));
+    document.getElementById("savee").onclick = () => {
+      const n = words(ta.value).length;
+      if (n < 20) { toast("Saqlash uchun matn juda qisqa."); return; }
+      S.essays = (S.essays || []).concat([{ key, title: question ? question.slice(0, 60) : (fq && fq.value.slice(0, 60)) || title, date: today(), words: n, text: ta.value }]).slice(-30);
+      S.drafts[key] = ""; delete S.drafts[key + ":left"]; save(); markActive();
+      toast("Saqlandi: Writing → Mening yozganlarim");
+    };
+    document.getElementById("check").onclick = () => {
+      const text = ta.value, k = curKind();
+      const n = words(text).length;
+      const ps = text.split(/\n\s*\n/).filter((p) => words(p).length > 3);
+      const sents = text.split(/[.!?]+\s/).filter((x) => words(x).length > 2);
+      const avg = sents.length ? Math.round(n / sents.length) : 0;
+      const links = linkersIn(text);
+      const rep = repeatedWords(text, k === "t1" ? 5 : 4);
+      const contr = (text.match(/\b\w+'(t|re|ll|ve|d|m)\b/gi) || []);
+      const informal = (norm(text).match(/\b(a lot of|lots of|stuff|things|kids|gonna|wanna|okay|ok|really|very very|nowadays people|get|got)\b/g) || []);
+      const longS = sents.filter((x) => words(x).length > 40).length;
+      const lower = norm(text);
+      const rows = [];
+      const add = (ok, msg) => rows.push('<li class="' + (ok ? "w-ok" : "w-miss") + '">' + (ok ? "✓ " : "✗ ") + msg + "</li>");
+      add(n >= (k === "t1" ? 150 : 250), "So'zlar: " + n + " (kerak: " + (k === "t1" ? 150 : 250) + "+)");
+      add(ps.length >= (k === "t1" ? 3 : 4), "Paragraflar: " + ps.length + (k === "t1" ? " (kirish, overview, 1–2 body)" : " (kirish, 2–3 body, xulosa)"));
+      add(avg >= 12 && avg <= 28, "O'rtacha gap uzunligi: " + avg + " so'z (12–28 yaxshi)");
+      add(links.length >= 5, "Bog'lovchilar (" + links.length + " xil): " + (links.length ? esc(links.join(", ")) : "yo'q") + ". Band 7 uchun 5+ xil, lekin har gapda emas");
+      add(!rep.length, rep.length ? "Ko'p takrorlangan so'zlar: " + rep.map(([x, c]) => esc(x) + " ×" + c).join(", ") + ". Sinonim yoki olmosh ishlating" : "Keraksiz takrorlash yo'q");
+      add(!contr.length, contr.length ? "Qisqartmalar (akademik emas): " + esc(contr.slice(0, 5).join(", ")) + ". To'liq yozing: do not, it is" : "Qisqartmalar yo'q");
+      add(informal.length <= 1, informal.length ? "Norasmiy so'zlar: " + esc([...new Set(informal)].join(", ")) + ". Masalan: a lot of → a significant number of, kids → children" : "Uslub rasmiy");
+      add(!longS, longS ? longS + " ta juda uzun gap (40+ so'z). Ikkiga bo'ling" : "Gaplar haddan tashqari uzun emas");
+      if (k === "t1") {
+        add(/\b(overall|in general|it is clear that|it is evident)\b/.test(lower), "Overview (Overall, ...) " + (/\b(overall|in general|it is clear|it is evident)\b/.test(lower) ? "bor" : "topilmadi: band 7 uchun shart"));
+        add(!/\b(i think|i believe|in my opinion|i feel)\b/.test(lower), "Task 1 da shaxsiy fikr bo'lmasligi kerak");
+      } else {
+        add(/\b(i believe|in my (view|opinion)|i (strongly )?(agree|disagree)|i would argue|from my perspective|i am convinced)\b/.test(lower), "Pozitsiya (fikringiz) aniq yozilgan");
+        add(/\b(in conclusion|to conclude|to sum up|overall|on balance|all things considered)\b/.test(lower), "Xulosa paragrafi bor");
+        add(/\b(for example|for instance|such as|a case in point|to illustrate)\b/.test(lower), "Misollar bor");
+      }
+      const ok = rows.filter((r) => r.includes("w-ok")).length;
+      document.getElementById("report").innerHTML = '<div class="card"><h3>Avtomatik tekshiruv: ' + ok + "/" + rows.length + '</h3><ul class="rules plain">' + rows.join("") + '</ul><p class="muted">Bu tekshiruv faqat shakl va uslubni ko\'radi. Mazmun, grammatika va bandni aniq baholash uchun eseni men (Claude) ga yuboring.</p></div>';
+      markActive();
+    };
+  }
+
   // Daraja testi: har darajadan 4 ta savol, darajalar ketma-ket tekshiriladi
   function viewTest() {
     const pick = (lv) => {
@@ -605,12 +886,22 @@
     const [sec, id] = parts;
     document.querySelectorAll(".tabbar a").forEach((a) => {
       const tab = a.dataset.tab;
-      a.classList.toggle("active", tab === (sec === "quiz" ? "grammar" : sec || "home"));
+      a.classList.toggle("active", tab === (sec === "quiz" ? "grammar" : sec === "write" ? "writing" : sec || "home"));
     });
     const isLv = LEVELS.includes(id);
     if (sec === "grammar") id && !isLv ? viewLesson(id) : viewGrammarList(id);
     else if (sec === "quiz") viewQuiz(id);
     else if (sec === "test") viewTest();
+    else if (sec === "writing") {
+      if (!id) viewWriting();
+      else if (id === "topics") viewTopics();
+      else if (id.startsWith("topic-")) viewTopics(id.slice(6));
+      else if (id === "phrases") viewPhrases();
+      else if (id === "criteria") viewCriteria();
+      else viewWritingItem(id);
+    }
+    else if (sec === "write") viewWrite(id || "free");
+    else if (sec === "speaking" && id === "guide") viewGuide(parts[2]);
     else if (sec === "speaking") id && !isLv ? viewTopic(id) : viewSpeakingList(id);
     else if (sec === "vocab") id && !isLv ? viewCards(id) : viewVocabList(id);
     else if (sec === "books") viewBooks();

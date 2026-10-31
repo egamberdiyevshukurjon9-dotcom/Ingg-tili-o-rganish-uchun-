@@ -1,6 +1,6 @@
 // Oflayn ishlash: sayt fayllarini keshda saqlaydi. Fayllar o'zgarsa, VERSION ni oshiring.
-const VERSION = "v3";
-const FILES = ["./", "index.html", "css/style.css", "js/app.js", "js/grammar.js", "js/grammar-b1.js", "js/grammar-b2.js", "js/grammar-c.js", "js/speaking.js", "js/speaking-adv.js", "js/vocab.js", "js/vocab-adv.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const VERSION = "v4";
+const FILES = ["./", "index.html", "css/style.css", "js/app.js", "js/grammar.js", "js/grammar-b1.js", "js/grammar-b2.js", "js/grammar-c.js", "js/speaking.js", "js/speaking-adv.js", "js/speaking-band7.js", "js/writing-task2.js", "js/writing-ideas.js", "js/vocab.js", "js/vocab-adv.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
