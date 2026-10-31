@@ -127,6 +127,8 @@ window.RESOURCES = {
     { name: "IELTS Vocabulary", use: "Lug'at bo'limidagi beginner so'zlardan keyin." },
     { name: "Ideas for IELTS Essay Topics (IELTS Liz)", use: "Writing → G'oyalar banki bilan birga: har kuni bitta mavzu, fikrlarni o'z so'zlaringiz bilan qayta yozing, keyin shu mavzuda esse yozing." },
     { name: "Longman Essay Activator", use: "Writing → Esse iboralari bo'limiga mos: har haftada bitta funksiya (qarama-qarshilik, sabab-oqibat...) dan 3–4 ta ibora tanlab, esselaringizda ishlating." },
+    { name: "English Idioms in Use Advanced (O'Dell, McCarthy)", use: "Lug'at → 💬 Idiomalar bo'limi shu kitob mavzulari tartibida: har mavzuni ilovada o'rganing (kartochka + test), keyin kitobdagi o'sha unit mashqlarini ishlang." },
+    { name: "C2 so'z ro'yxatlari (BTU SFL C2 Level Words, MindDory C2 list)", use: "Shu ro'yxatlardan IELTS uchun eng foydali so'zlar tanlanib, Lug'at → C2 bo'limiga o'zbekcha ma'no, misol va kollokatsiyalar bilan qo'shilgan. Takrorlash tizimi ularni 1–35 kun oralig'ida qayta so'raydi." },
     { name: "Cambridge IELTS 19, Multilevel Master", use: "Haqiqiy test sharoitida: Writing savollarini ilovadagi Yozish mashqi (taymer bilan) da ishlang." }
   ],
   online: [
