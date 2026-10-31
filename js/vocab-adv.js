@@ -8,7 +8,7 @@ window.VOCAB.push(...[
       ["degree", "diplom, ilmiy daraja", "She has a degree in history."],
       ["graduate", "o'qishni bitirmoq", "I will graduate next summer."],
       ["revise", "takrorlamoq (imtihonga)", "I need to revise for my exam."],
-      ["fail", "yiqilmoq (imtihondan)", "He failed his driving test twice."],
+      ["retake", "qayta topshirmoq", "If I don't pass, I can retake the exam in March."],
       ["pass", "topshirmoq (muvaffaqiyatli)", "Did you pass the exam?"],
       ["homework", "uy vazifasi", "Our teacher gives us a lot of homework."],
       ["timetable", "dars jadvali", "Check the timetable for Monday."],
@@ -16,7 +16,7 @@ window.VOCAB.push(...[
       ["scholarship", "stipendiya, grant", "She got a scholarship to study in Korea."],
       ["certificate", "sertifikat, guvohnoma", "You need an IELTS certificate to apply."],
       ["knowledge", "bilim", "Reading improves your general knowledge."],
-      ["improve", "yaxshilamoq", "I want to improve my speaking."],
+      ["make progress", "o'smoq, yutuqqa erishmoq", "I have made real progress in speaking this year."],
       ["attend", "qatnashmoq", "I attend English classes three times a week."],
       ["mark / grade", "baho", "I got a good mark in chemistry."]
     ]
@@ -85,7 +85,7 @@ window.VOCAB.push(...[
       ["employer", "ish beruvchi", "My employer pays for my training."],
       ["employee", "xodim", "The company has 200 employees."],
       ["unemployment", "ishsizlik", "Unemployment has fallen this year."],
-      ["salary", "maosh", "She earns a good salary."],
+      ["wage", "ish haqi (soatbay/haftalik)", "The minimum wage rose again this year."],
       ["promotion", "lavozimga ko'tarilish", "He got a promotion after two years."],
       ["deadline", "muddat", "We have to meet the deadline."],
       ["apply for", "ariza bermoq", "I applied for a job at a bank."],
