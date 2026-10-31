@@ -40,6 +40,12 @@ Dars matnlari va mashqlar original: kitoblardan ko'chirilmagan, faqat mavzular k
 - **📈 Natijalarim:** XP, kunlik maqsad, unvonlar, nishonlar, 14 kunlik grafik, xatolar daftari, haftalik o'rganish strategiyalari.
 - **🔬 Ilmiy manbalar:** Scopus ELT jurnallari, tadqiqot yo'nalishlari (AI, korpus, gamifikatsiya, LLS), IMRAD maqola tuzilishi.
 
+## O'zbekcha grammatika kitoblari asosida
+
+- **📘 16 ta qo'shimcha dars** (A2–C1): G'apporov–Qosimova "Ingliz tili grammatikasi" va Bo'ronov va boshq. "English Grammar" mavzulari: otlarda ko'plik va egalik, sonlar va sanalar, olmoshlar, sifat tartibi, ravishlar, guruh predloglar, so'roq gap turlari, zamonlar moslashuvi, Complex Object/Subject, mustaqil sifatdoshli birikmalar, ergash gaplar va tinish belgilari.
+- **📋 Noto'g'ri fe'llar:** 198 ta fe'l, qidiruv, daraja bo'yicha filtr, tinglash va yozma test.
+- **🗂️ C2 lug'at (2-qism):** English Vocabulary Profile C2 ro'yxatidan yana 200 so'z va ibora (phrasal verbs, n–z).
+
 ## Android ilova (APK)
 
 `android/` papkasida WebView asosidagi ilova bor: sayt fayllari APK ichida (internetsiz ochiladi),
