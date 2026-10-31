@@ -232,7 +232,7 @@ window.COLLOCATIONS = [
     quiz: [
       { q: "She ___ for a job as a marketing assistant.", o: ["applied", "asked", "requested"], a: 0, e: "<b>apply for a job</b>: ishga ariza berish." },
       { q: "Freelancers often have little job ___.", o: ["safety", "security", "stable"], a: 1, e: "<b>job security</b>: ish o'rni kafolati. safety — jismoniy xavfsizlik." },
-      { q: "Many artists find it hard to ___ a living.", o: ["win", "make", "earn"], a: 2, e: "<b>earn a living</b>: make a living ham to'g'ri, lekin bu yerda earn berilgan; win noto'g'ri." },
+      { q: "Many artists find it hard to ___ a living.", o: ["win", "gain", "earn"], a: 2, e: "<b>earn a living</b>: tirikchilik qilish (make a living ham to'g'ri). win va gain bu ot bilan kelmaydi." },
       { q: "The ___ of living in the capital has doubled.", o: ["price", "cost", "value"], a: 1, e: "<b>cost of living</b>: turmush narxi — doimiy birikma." },
       { q: "Fluent English can improve your career ___.", o: ["prospects", "views", "chances of"], a: 0, e: "<b>career prospects</b>: martaba istiqbollari." },
       { q: "He has ___ a successful restaurant for ten years.", o: ["led", "driven", "run"], a: 2, e: "<b>run a business</b>: biznes boshqarish." },

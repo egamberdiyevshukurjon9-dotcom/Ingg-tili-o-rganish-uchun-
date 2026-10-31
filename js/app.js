@@ -822,7 +822,7 @@
     const c = COLS().find((x) => x.id === id);
     if (!c) return viewCollocList();
     runQuiz({
-      title: "Kollokatsiya · " + c.title, qs: c.quiz, back: "#/colloc/" + id, backText: "← " + c.title,
+      title: "Kollokatsiya · " + c.title, qs: c.quiz.map((q) => { const o = shuffle(q.o); return Object.assign({}, q, { o, a: o.indexOf(q.o[q.a]) }); }), back: "#/colloc/" + id, backText: "← " + c.title,
       onFinish: (score) => {
         S.colloc[id] = Math.max(S.colloc[id] || 0, score); save();
         const nx = COLS()[COLS().indexOf(c) + 1];
