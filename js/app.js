@@ -235,9 +235,14 @@
   const LEVEL_IELTS = { A1: "IELTS 2–3", A2: "IELTS 3–4", B1: "IELTS 4–5", B2: "IELTS 5.5–6.5", C1: "IELTS 7–8", C2: "IELTS 8.5–9" };
   // Eski (A1–A2) darslarda daraja yozilmagan: birinchi 9 tasi A1, qolgani A2
   GRAMMAR.forEach((l, i) => {
-    if (!l.level) l.level = i < 9 ? "A1" : "A2";
-    if (!/Grammar in Use/.test(l.murphy)) l.murphy = "Essential Grammar in Use, " + l.murphy;
+    if (!l.level) {
+      l.level = i < 9 ? "A1" : "A2";
+      if (!/Grammar in Use/.test(l.murphy)) l.murphy = "Essential Grammar in Use, " + l.murphy;
+    }
   });
+  // Qo'shimcha fayllardagi darslar ham o'z darajasi ichida turishi uchun (tartib barqaror saralanadi)
+  const LV_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  GRAMMAR.sort((a, b) => LV_ORDER.indexOf(a.level) - LV_ORDER.indexOf(b.level));
   VOCAB.forEach((t) => { if (!t.level) t.level = "A2"; });
   SPEAKING.forEach((t) => { if (!t.level) t.level = "A2"; });
   const myLevel = () => S.level || "A1";
@@ -331,7 +336,8 @@
     const doneN = list.filter((l) => S.quiz[l.id] >= 70).length;
     html(
       "<h1>📘 Grammatika</h1>" +
-      '<p class="muted">A1 dan C2 gacha ' + GRAMMAR.length + " ta dars. A1–A2: <b>Essential Grammar in Use</b>, B1–B2: <b>English Grammar in Use</b>, C1–C2: <b>Advanced Grammar in Use</b> tartibida. Testdan 70%+ olsangiz, dars o'tilgan hisoblanadi.</p>" +
+      '<p class="muted">A1 dan C2 gacha ' + GRAMMAR.length + " ta dars. A1–A2: <b>Essential Grammar in Use</b>, B1–B2: <b>English Grammar in Use</b>, C1–C2: <b>Advanced Grammar in Use</b> tartibida; o'zbekcha grammatika kitoblaridagi (G'apporov–Qosimova, Bo'ronov va boshq.) qo'shimcha mavzular ham bor. Testdan 70%+ olsangiz, dars o'tilgan hisoblanadi.</p>" +
+      (window.IRREGULAR ? '<a class="card link" href="#/irregular"><div class="row"><div style="font-size:1.5rem">📋</div><div class="grow"><h3>Noto\'g\'ri fe\'llar jadvali</h3><div class="muted">' + IRREGULAR.length + " ta fe'l, qidiruv, tinglash va test</div></div></div></a>" : "") +
       levelTabs("grammar", lv) +
       '<p class="muted">' + lv + " · " + LEVEL_NAME[lv] + " · " + LEVEL_IELTS[lv] + " · o'tildi: " + doneN + "/" + list.length + "</p>" +
       '<div class="list">' +
@@ -465,7 +471,7 @@
       onFinish: (score) => {
         S.quiz[id] = Math.max(S.quiz[id] || 0, score); save();
         return {
-          note: score >= 70 ? "<p>Dars o'tildi. Endi Murphy kitobidagi " + esc(l.murphy) + " mashqlarini ishlang.</p>" : "<p>Qoidalarni qayta o'qing va testni yana bir bor ishlang. 70% kerak.</p>",
+          note: score >= 70 ? "<p>Dars o'tildi. Endi kitobdagi mashqlarni ishlang: " + esc(l.murphy) + ".</p>" : "<p>Qoidalarni qayta o'qing va testni yana bir bor ishlang. 70% kerak.</p>",
           next: GRAMMAR[idx + 1] && score >= 70 ? '<a class="btn" href="#/grammar/' + GRAMMAR[idx + 1].id + '">Keyingi dars →</a>' : '<a class="btn" href="#/grammar/' + id + '">Darsni qayta o\'qish</a>'
         };
       }
@@ -744,6 +750,43 @@
       return;
     }
     runDeck({ title: "Takrorlash", cards: due.slice(0, 40), back: "#/review", backText: "← Takrorlash", doneText: "Davom etish", showFrom: true, again: viewReview });
+  }
+
+  // ---------- Noto'g'ri fe'llar ----------
+  function viewIrregular() {
+    const list = window.IRREGULAR || [];
+    html('<a class="back" href="#/grammar">← Grammatika</a><h1>📋 Noto\'g\'ri fe\'llar</h1>' +
+      '<p class="muted">' + list.length + " ta fe'l: 1-shakl (hozirgi), 2-shakl (Past Simple), 3-shakl (Present Perfect, Passive). Avval o'z darajangizdagilarni yodlang.</p>" +
+      '<div class="btns" style="margin-bottom:10px"><a class="btn" href="#/irregular/quiz">📝 Test (20 ta)</a></div>' +
+      '<input class="answer" id="iq" placeholder="Qidirish: go, yozmoq..." autocomplete="off" autocapitalize="off" spellcheck="false">' +
+      '<div class="chips" id="ilv" style="margin-top:10px">' + ["Hammasi"].concat(LEVELS).map((x, k) => '<button class="chip' + (k ? "" : " on") + '" data-lv="' + x + '" type="button">' + x + "</button>").join("") + "</div>" +
+      '<div class="card table-wrap"><table><thead><tr><th>1</th><th>2</th><th>3</th><th>Ma\'nosi</th><th></th></tr></thead><tbody id="itb"></tbody></table></div>');
+    let lv = "Hammasi";
+    const q = document.getElementById("iq");
+    function draw() {
+      const t = norm(q.value || "");
+      const rows = list.filter((v) => (lv === "Hammasi" || v[4] === lv) && (!t || norm(v.slice(0, 4).join(" ")).includes(t)));
+      document.getElementById("itb").innerHTML = rows.map((v) => "<tr><td><b>" + esc(v[0]) + "</b></td><td>" + esc(v[1]) + "</td><td>" + esc(v[2]) + '</td><td class="muted">' + esc(v[3]) + '</td><td><button class="icon-btn" data-speak="' + esc(v[0] + ", " + v[1].split(" / ")[0] + ", " + v[2].split(" / ")[0]) + '" aria-label="Tinglash">🔊</button></td></tr>').join("") ||
+        '<tr><td colspan="5" class="muted">Topilmadi.</td></tr>';
+    }
+    q.oninput = draw;
+    app.querySelectorAll("#ilv .chip").forEach((b) => (b.onclick = () => {
+      lv = b.dataset.lv;
+      app.querySelectorAll("#ilv .chip").forEach((x) => x.classList.toggle("on", x === b));
+      draw();
+    }));
+    draw();
+  }
+  function viewIrregularQuiz() {
+    const lvIdx = LEVELS.indexOf(myLevel());
+    let pool = (window.IRREGULAR || []).filter((v) => LEVELS.indexOf(v[4]) <= Math.max(lvIdx, 1));
+    if (pool.length < 20) pool = window.IRREGULAR || [];
+    const forms = (x) => x.split(" / ").map((f) => f.replace(/\s*\(.*\)$/, ""));
+    const qs = shuffle(pool).slice(0, 20).map((v, k) => k % 2
+      ? { q: v[0] + " (" + v[3] + ") — 3-shakli (V3)?", w: forms(v[2]), e: "<b>" + esc(v[0] + " – " + v[1] + " – " + v[2]) + "</b>" }
+      : { q: v[0] + " (" + v[3] + ") — 2-shakli (Past Simple)?", w: forms(v[1]), e: "<b>" + esc(v[0] + " – " + v[1] + " – " + v[2]) + "</b>" });
+    runQuiz({ title: "Noto'g'ri fe'llar", qs, back: "#/irregular", backText: "← Jadval",
+      onFinish: () => ({ next: '<a class="btn" href="#/irregular">Jadval</a>' }) });
   }
 
   // ---------- Idiomalar ----------
@@ -1188,7 +1231,7 @@
     const [sec, id] = parts;
     document.querySelectorAll(".tabbar a").forEach((a) => {
       const tab = a.dataset.tab;
-      const TAB = { quiz: "grammar", write: "writing", review: "vocab", idiom: "vocab", idiomcards: "vocab", idiomquiz: "vocab", colloc: "vocab", cquiz: "vocab", research: "books", progress: "home", mistakes: "home" };
+      const TAB = { quiz: "grammar", write: "writing", review: "vocab", idiom: "vocab", idiomcards: "vocab", idiomquiz: "vocab", colloc: "vocab", cquiz: "vocab", research: "books", irregular: "grammar", progress: "home", mistakes: "home" };
       a.classList.toggle("active", tab === (TAB[sec] || sec || "home"));
     });
     const isLv = LEVELS.includes(id);
@@ -1218,6 +1261,7 @@
     else if (sec === "progress") viewProgress();
     else if (sec === "mistakes") viewMistakes();
     else if (sec === "research") viewResearch();
+    else if (sec === "irregular") id === "quiz" ? viewIrregularQuiz() : viewIrregular();
     else if (sec === "books") viewBooks();
     else viewHome();
   }
