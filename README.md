@@ -46,6 +46,10 @@ Dars matnlari va mashqlar original: kitoblardan ko'chirilmagan, faqat mavzular k
 - **📋 Noto'g'ri fe'llar:** 198 ta fe'l, qidiruv, daraja bo'yicha filtr, tinglash va yozma test.
 - **🗂️ C2 lug'at (2-qism):** English Vocabulary Profile C2 ro'yxatidan yana 200 so'z va ibora (phrasal verbs, n–z).
 
+## 📖 Kitoblarim
+
+O'zingizdagi PDF kitoblarni ilovaga qo'shib, ilova ichida to'liq o'qish mumkin: fayllar faqat qurilmada (IndexedDB) saqlanadi, repozitoriyga yoki internetga yuklanmaydi. Qolgan sahifa eslab qolinadi, matnli sahifani ovoz chiqarib o'qib beradi. PDF ko'rsatish uchun `vendor/pdfjs` (Mozilla pdf.js 3.11.174, Apache-2.0) ishlatiladi.
+
 ## Android ilova (APK)
 
 `android/` papkasida WebView asosidagi ilova bor: sayt fayllari APK ichida (internetsiz ochiladi),

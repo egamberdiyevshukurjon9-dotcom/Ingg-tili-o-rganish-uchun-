@@ -12,7 +12,10 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.content.ClipData;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -30,6 +33,8 @@ import java.util.Locale;
  */
 public class MainActivity extends Activity {
     private static final int REQ_MIC = 1;
+    private static final int REQ_FILE = 2;
+    private ValueCallback<Uri[]> fileCb;
 
     private WebView web;
     private TextToSpeech tts;
@@ -60,6 +65,26 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 return false;
+            }
+        });
+        // "Kitoblarim": telefondan PDF tanlash oynasi
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (fileCb != null) fileCb.onReceiveValue(null);
+                fileCb = cb;
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("application/pdf");
+                i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                try {
+                    startActivityForResult(Intent.createChooser(i, "Kitob tanlang"), REQ_FILE);
+                } catch (Exception e) {
+                    fileCb = null;
+                    cb.onReceiveValue(null);
+                    return false;
+                }
+                return true;
             }
         });
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
@@ -168,6 +193,23 @@ public class MainActivity extends Activity {
     private static String first(Bundle b) {
         ArrayList<String> r = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         return (r == null || r.isEmpty()) ? null : r.get(0);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        if (req != REQ_FILE || fileCb == null) { super.onActivityResult(req, res, data); return; }
+        Uri[] out = null;
+        if (res == RESULT_OK && data != null) {
+            ClipData clip = data.getClipData();
+            if (clip != null) {
+                out = new Uri[clip.getItemCount()];
+                for (int k = 0; k < out.length; k++) out[k] = clip.getItemAt(k).getUri();
+            } else if (data.getData() != null) {
+                out = new Uri[] { data.getData() };
+            }
+        }
+        fileCb.onReceiveValue(out);
+        fileCb = null;
     }
 
     @Override

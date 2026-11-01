@@ -24,7 +24,7 @@ rm -rf "$B" && mkdir -p "$B/assets/www" "$B/classes" "$B/compiled"
 
 # 1. Sayt fayllari ilova ichiga (internetsiz ishlashi uchun)
 cp "$ROOT/index.html" "$ROOT/manifest.webmanifest" "$B/assets/www/"
-cp -r "$ROOT/css" "$ROOT/js" "$ROOT/icons" "$B/assets/www/"
+cp -r "$ROOT/css" "$ROOT/js" "$ROOT/icons" "$ROOT/vendor" "$B/assets/www/"
 
 # 2. Resurslar va manifest
 "$TOOLS/aapt2" compile --dir "$HERE/res" -o "$B/compiled/res.zip"

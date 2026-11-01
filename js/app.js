@@ -366,7 +366,7 @@
     html(
       '<a class="back" href="#/grammar/' + l.level + '">← ' + l.level + " darslari</a>" +
       "<h1>" + (idx + 1) + ". " + esc(l.title) + ' <span class="badge">' + l.level + "</span></h1>" +
-      '<p class="muted">📖 ' + esc(l.murphy) + " · Qo'shimcha: " + esc(l.book) + "</p>" +
+      '<p class="muted">📖 ' + esc(l.murphy) + " · Qo'shimcha: " + esc(l.book) + ' · <a href="#/kitoblar">📖 Kitobni ochish</a></p>' +
       '<div class="card"><p>' + l.intro + "</p>" +
       '<div class="table-wrap"><table><thead><tr>' + l.tableHead.map((h) => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>" +
       l.table.map((r) => "<tr>" + r.map((c) => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") +
@@ -958,6 +958,186 @@
       onFinish: () => ({ note: "<p>Qolgan xatolar: " + (S.mist || []).length + ".</p>", next: '<a class="btn" href="#/progress">Natijalarim</a>' }) });
   }
 
+  // ---------- Kitoblarim: foydalanuvchining o'z PDF kitoblari (faqat shu qurilmada saqlanadi) ----------
+  function bookDB() {
+    return new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error("no-idb"));
+      const r = indexedDB.open("english-start-books", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("books", { keyPath: "id" });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function bookStore(mode, fn) {
+    return bookDB().then((db) => new Promise((res, rej) => {
+      const tx = db.transaction("books", mode);
+      const req = fn(tx.objectStore("books"));
+      tx.oncomplete = () => res(req && req.result);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error("abort"));
+    }));
+  }
+  // Ro'yxat uchun faylning o'zini emas, faqat ma'lumotini olamiz
+  function bookList() {
+    return bookDB().then((db) => new Promise((res, rej) => {
+      const out = [];
+      const tx = db.transaction("books", "readonly");
+      const cur = tx.objectStore("books").openCursor();
+      cur.onsuccess = () => {
+        const c = cur.result;
+        if (!c) return;
+        const v = c.value;
+        out.push({ id: v.id, name: v.name, size: v.size, added: v.added, pages: v.pages });
+        c.continue();
+      };
+      tx.oncomplete = () => res(out.sort((a, b) => a.name.localeCompare(b.name)));
+      tx.onerror = () => rej(tx.error);
+    }));
+  }
+  let pdfLoading = null;
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const el = document.createElement("script");
+      el.src = src; el.onload = res; el.onerror = () => rej(new Error("load " + src));
+      document.head.appendChild(el);
+    });
+  }
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfLoading) return pdfLoading;
+    const base = window.PDFJS_BASE || "vendor/pdfjs/";
+    // Telefondagi ilovada va file:// da Worker ishlamasligi mumkin: ishchi skriptni sahifaga yuklaymiz
+    const inline = !!NATIVE || location.protocol === "file:" || !window.Worker;
+    pdfLoading = loadScript(base + "pdf.min.js")
+      .then(() => (inline ? loadScript(base + "pdf.worker.min.js") : null))
+      .then(() => {
+        const lib = window.pdfjsLib;
+        lib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js";
+        return lib;
+      })
+      .catch((e) => { pdfLoading = null; throw e; });
+    return pdfLoading;
+  }
+  const fmtSize = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " KB");
+  function viewBooksMine() {
+    html('<a class="back" href="#/books">← Manbalar</a><h1>📖 Kitoblarim</h1>' +
+      '<p class="muted">O\'zingizdagi PDF kitoblarni (Murphy, Idioms in Use, G\'apporov–Qosimova, C2 ro\'yxatlar va boshqalar) shu yerga qo\'shing. Fayllar faqat sizning telefon yoki kompyuteringizda saqlanadi, internetga yuborilmaydi. Keyin kitobni ilova ichida to\'liq o\'qiysiz: ilova qolgan sahifangizni eslab qoladi, inglizcha sahifani ovoz chiqarib o\'qib ham beradi.</p>' +
+      '<label class="btn" style="margin-bottom:12px">➕ PDF kitob qo\'shish<input type="file" id="bf" accept="application/pdf,.pdf" multiple hidden></label>' +
+      '<div id="bl"><p class="muted">Yuklanmoqda...</p></div>' +
+      '<div class="card"><h3>Kitob bilan ishlash tartibi</h3><ul class="rules">' +
+        "<li>Avval ilovadagi darsni o'qing, keyin kitobdagi o'sha mavzuni oching (darsda bo'lim nomi yozilgan).</li>" +
+        "<li>Kitobdagi mashqlarni daftarga ishlang, javoblarini kitob oxiridagi kalit bilan tekshiring.</li>" +
+        "<li>Notanish so'zni Lug'at bo'limidan qidiring yoki kartochkaga yozib oling.</li>" +
+      "</ul></div>");
+    const bl = document.getElementById("bl");
+    function draw() {
+      bookList().then((list) => {
+        if (!bl.isConnected) return;
+        bl.innerHTML = list.length
+          ? '<div class="list">' + list.map((b) => {
+              const pg = (S.bookPage || {})[b.id];
+              return '<div class="card"><a href="#/kitob/' + esc(b.id) + '" style="text-decoration:none;color:inherit"><h3>📕 ' + esc(b.name.replace(/\.pdf$/i, "")) + "</h3>" +
+                '<div class="muted">' + fmtSize(b.size) + (b.pages ? " · " + b.pages + " bet" : "") + (pg ? " · " + pg + "-betda qolgansiz" : "") + "</div></a>" +
+                '<div class="btns"><a class="btn small" href="#/kitob/' + esc(b.id) + '">O\'qish</a><button class="btn small ghost" data-del="' + esc(b.id) + '" type="button">O\'chirish</button></div></div>';
+            }).join("") + "</div>"
+          : '<div class="card muted">Hali kitob qo\'shilmagan. “➕ PDF kitob qo\'shish” tugmasini bosing.</div>';
+        bl.querySelectorAll("[data-del]").forEach((btn) => (btn.onclick = () => {
+          if (!btn.dataset.sure) { btn.dataset.sure = "1"; btn.textContent = "Ishonchingiz komilmi?"; return; }
+          bookStore("readwrite", (st) => st.delete(btn.dataset.del)).then(draw);
+        }));
+      }).catch(() => { bl.innerHTML = '<div class="card muted">Bu brauzer fayllarni saqlay olmaydi (IndexedDB yo\'q yoki maxfiy rejim). Chrome yoki Edge\'da oching.</div>'; });
+    }
+    document.getElementById("bf").onchange = (e) => {
+      const files = Array.from(e.target.files || []).filter((f) => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
+      if (!files.length) return;
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => null);
+      toast(files.length + " ta kitob saqlanmoqda...");
+      Promise.all(files.map((f) => bookStore("readwrite", (st) => st.put({ id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: f.name, size: f.size, added: today(), data: f }))))
+        .then(() => { toast("✅ Saqlandi: " + files.map((f) => f.name).join(", ")); draw(); })
+        .catch(() => toast("Saqlab bo'lmadi: qurilmada joy yetishmasligi mumkin."));
+      e.target.value = "";
+    };
+    draw();
+  }
+  function viewBookRead(id) {
+    let doc = null, page = (S.bookPage || {})[id] || 1, zoom = 1, rendering = null, meta = null;
+    html('<a class="back" href="#/kitoblar">← Kitoblarim</a><h3 id="bt" style="margin:4px 0 8px;overflow-wrap:anywhere">...</h3>' +
+      '<div class="card wbar" style="flex-wrap:wrap;gap:6px">' +
+        '<button class="icon-btn" id="pp" aria-label="Oldingi sahifa">◀</button>' +
+        '<input class="answer" id="pn" inputmode="numeric" style="width:70px;padding:6px;text-align:center" aria-label="Sahifa raqami"><span class="muted" id="pt"></span>' +
+        '<button class="icon-btn" id="np" aria-label="Keyingi sahifa">▶</button>' +
+        '<span class="grow"></span>' +
+        '<button class="icon-btn" id="zo" aria-label="Kichiklashtirish">➖</button><button class="icon-btn" id="zi" aria-label="Kattalashtirish">➕</button>' +
+        '<button class="icon-btn" id="rd" aria-label="Sahifani o\'qib berish">🔊</button>' +
+      "</div>" +
+      '<div id="pw" style="overflow:auto;background:#fff;border-radius:10px;border:1px solid var(--line);min-height:300px;touch-action:pan-x pan-y pinch-zoom"><p class="muted" style="padding:12px">Kitob ochilmoqda...</p></div>' +
+      '<div class="btns" style="justify-content:space-between"><button class="btn ghost" id="pp2">◀ Oldingi</button><button class="btn ghost" id="np2">Keyingi ▶</button></div>');
+    const pw = document.getElementById("pw");
+    function fail(msg) { if (pw.isConnected) pw.innerHTML = '<p class="muted" style="padding:12px">' + msg + "</p>"; }
+    function render() {
+      if (!doc || !pw.isConnected) return;
+      page = Math.min(Math.max(1, page), doc.numPages);
+      document.getElementById("pn").value = page;
+      S.bookPage = S.bookPage || {}; S.bookPage[id] = page; save();
+      if (rendering) { try { rendering.cancel(); } catch (e) { /* bekor qilindi */ } }
+      const p = page;
+      doc.getPage(p).then((pg) => {
+        if (p !== page || !pw.isConnected) return;
+        const base = pg.getViewport({ scale: 1 });
+        const w = Math.max(280, pw.clientWidth - 2);
+        const scale = (w / base.width) * zoom;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const vp = pg.getViewport({ scale: scale * dpr });
+        const c = document.createElement("canvas");
+        c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+        c.style.width = Math.floor(vp.width / dpr) + "px"; c.style.height = Math.floor(vp.height / dpr) + "px"; c.style.display = "block";
+        rendering = pg.render({ canvasContext: c.getContext("2d"), viewport: vp });
+        return rendering.promise.then(() => {
+          rendering = null;
+          if (p !== page || !pw.isConnected) return;
+          pw.innerHTML = ""; pw.appendChild(c); pw.scrollTop = 0;
+        });
+      }).catch((e) => { if (!e || e.name !== "RenderingCancelledException") fail("Bu sahifani ochib bo'lmadi."); });
+    }
+    const go = (d) => { page += d; render(); window.scrollTo(0, 0); };
+    document.getElementById("pp").onclick = () => go(-1);
+    document.getElementById("np").onclick = () => go(1);
+    document.getElementById("pp2").onclick = () => go(-1);
+    document.getElementById("np2").onclick = () => go(1);
+    document.getElementById("zi").onclick = () => { zoom = Math.min(3, zoom + 0.25); render(); };
+    document.getElementById("zo").onclick = () => { zoom = Math.max(0.5, zoom - 0.25); render(); };
+    document.getElementById("pn").onchange = (e) => { const n = parseInt(e.target.value, 10); if (n) { page = n; render(); } };
+    document.getElementById("rd").onclick = () => {
+      if (!doc) return;
+      doc.getPage(page).then((pg) => pg.getTextContent()).then((tc) => {
+        const txt = tc.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim();
+        if (txt.length < 3) { toast("Bu sahifada o'qiladigan matn yo'q (skaner qilingan rasm)."); return; }
+        speak(txt.slice(0, 3000));
+      }).catch(() => toast("Matnni o'qib bo'lmadi."));
+    };
+    let sx = null;
+    pw.addEventListener("touchstart", (e) => { sx = e.touches.length === 1 && zoom <= 1 ? e.touches[0].clientX : null; }, { passive: true });
+    pw.addEventListener("touchend", (e) => {
+      if (sx == null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 70) go(dx < 0 ? 1 : -1);
+      sx = null;
+    }, { passive: true });
+    bookStore("readonly", (st) => st.get(id)).then((b) => {
+      if (!b) { fail("Kitob topilmadi. Kitoblarim ro'yxatiga qayting."); return; }
+      meta = b;
+      document.getElementById("bt").textContent = "📕 " + b.name.replace(/\.pdf$/i, "");
+      return Promise.all([loadPdfJs(), new Response(b.data).arrayBuffer()]).then(([lib, buf]) =>
+        lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise).then((d) => {
+        doc = d;
+        document.getElementById("pt").textContent = "/ " + d.numPages;
+        if (!meta.pages) { meta.pages = d.numPages; bookStore("readwrite", (st) => st.put(meta)).catch(() => null); }
+        markActive();
+        render();
+      });
+    }).catch(() => fail("Kitobni ochib bo'lmadi. Fayl buzilgan yoki parol bilan himoyalangan bo'lishi mumkin."));
+  }
+
   // ---------- Ilmiy manbalar ----------
   function viewResearch() {
     const R = window.RESEARCH;
@@ -980,6 +1160,7 @@
   function viewBooks() {
     html(
       "<h1>📚 Kitoblaringiz va manbalar</h1>" +
+      '<a class="card link" href="#/kitoblar"><div class="row"><div style="font-size:1.6rem">📖</div><div class="grow"><h3>Kitoblarim</h3><div class="muted">O\'z PDF kitoblaringizni qo\'shing va ilova ichida to\'liq o\'qing (internetsiz)</div></div></div></a>' +
       '<a class="card link" href="#/research"><div class="row"><div style="font-size:1.6rem">🔬</div><div class="grow"><h3>Ilmiy manbalar</h3><div class="muted">Scopus ELT jurnallari, tadqiqot yo\'nalishlari, o\'rganish strategiyalari va IMRAD maqola tuzilishi</div></div></div></a>' +
       '<p class="muted">Ilova kitoblaringiz bilan birga ishlatish uchun tuzilgan. Kitob matnlari ko\'chirilmagan: darslar mavzu tartibi bo\'yicha moslangan, mashqlar yangidan yozilgan.</p>' +
       "<h2>Kitoblar: qachon va qanday</h2>" +
@@ -1231,7 +1412,7 @@
     const [sec, id] = parts;
     document.querySelectorAll(".tabbar a").forEach((a) => {
       const tab = a.dataset.tab;
-      const TAB = { quiz: "grammar", write: "writing", review: "vocab", idiom: "vocab", idiomcards: "vocab", idiomquiz: "vocab", colloc: "vocab", cquiz: "vocab", research: "books", irregular: "grammar", progress: "home", mistakes: "home" };
+      const TAB = { quiz: "grammar", write: "writing", review: "vocab", idiom: "vocab", idiomcards: "vocab", idiomquiz: "vocab", colloc: "vocab", cquiz: "vocab", research: "books", kitoblar: "books", kitob: "books", irregular: "grammar", progress: "home", mistakes: "home" };
       a.classList.toggle("active", tab === (TAB[sec] || sec || "home"));
     });
     const isLv = LEVELS.includes(id);
@@ -1261,6 +1442,8 @@
     else if (sec === "progress") viewProgress();
     else if (sec === "mistakes") viewMistakes();
     else if (sec === "research") viewResearch();
+    else if (sec === "kitoblar") viewBooksMine();
+    else if (sec === "kitob") viewBookRead(id);
     else if (sec === "irregular") id === "quiz" ? viewIrregularQuiz() : viewIrregular();
     else if (sec === "books") viewBooks();
     else viewHome();
